@@ -1,0 +1,491 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+
+const TIPOS = ['RC', 'A', 'D', 'O', 'ADO', 'AD']
+
+const inputStyle = {
+  width: '100%',
+  padding: '8px 12px',
+  fontSize: '0.875rem',
+  border: '1px solid #d1d5db',
+  borderRadius: '8px',
+  fontFamily: 'inherit',
+  outline: 'none',
+  background: '#fff',
+  color: '#0f172a',
+  transition: 'border-color 0.15s',
+}
+
+const labelStyle = {
+  display: 'block',
+  fontSize: '0.78rem',
+  fontWeight: 600,
+  color: '#374151',
+  marginBottom: '5px',
+}
+
+const fieldGroupStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+}
+
+export default function CreateOperacionModal({ onClose, aplicaciones, operaciones }) {
+  const router = useRouter()
+
+  const [form, setForm] = useState({
+    operacion_tipo: 'RC',
+    arbol_ID: '',
+    arbol_linked: false,
+    RC_Numero: '',
+    operacion_importeretenido: '',
+    operacion_descripcion: '',
+    operacion_unidadgestora: '',
+    operacion_fecha: '',
+    operacion_aplicacion: '',
+  })
+
+  const [showArbolPicker, setShowArbolPicker] = useState(false)
+  const [arbolSearch, setArbolSearch] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  const isRC = form.operacion_tipo === 'RC'
+
+  // Preview of next operacion_ID (client-side estimate)
+  const nextIDPreview = useMemo(() => {
+    const maxNum = (operaciones || []).reduce((max, op) => {
+      const match = op.operacion_ID?.match(/CONT-OP-(\d+)/)
+      if (match) {
+        const n = parseInt(match[1], 10)
+        return n > max ? n : max
+      }
+      return max
+    }, 0)
+    return `CONT-OP-${String(maxNum + 1).padStart(6, '0')}`
+  }, [operaciones])
+
+  // Distinct arbol_IDs from existing operaciones
+  const arbolIDs = useMemo(() => {
+    const ids = new Set()
+    ;(operaciones || []).forEach(op => { if (op.arbol_ID) ids.add(op.arbol_ID) })
+    return [...ids].sort()
+  }, [operaciones])
+
+  const filteredArbolIDs = arbolSearch
+    ? arbolIDs.filter(id => id.toLowerCase().includes(arbolSearch.toLowerCase()))
+    : arbolIDs
+
+  // When arbol selected, inherit importeretenido if RC
+  const selectArbol = (arbolId) => {
+    const matchingRows = (operaciones || []).filter(op => op.arbol_ID === arbolId)
+    const inherited = matchingRows.find(op => op.operacion_importeretenido != null)
+    setForm(prev => ({
+      ...prev,
+      arbol_ID: arbolId,
+      arbol_linked: true,
+      operacion_importeretenido: inherited?.operacion_importeretenido ?? prev.operacion_importeretenido,
+    }))
+    setShowArbolPicker(false)
+    setArbolSearch('')
+  }
+
+  const clearArbol = () => {
+    setForm(prev => ({ ...prev, arbol_ID: '', arbol_linked: false }))
+  }
+
+  const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+
+    // Basic validation
+    if (!form.operacion_tipo) return setError('El tipo de operación es obligatorio.')
+    if (isRC && form.RC_Numero) {
+      if (!/^RC-\d{4}-\d{5}$/.test(form.RC_Numero)) {
+        return setError('El RC Número debe tener el formato RC-AAAA-NNNNN (ej: RC-2025-00124)')
+      }
+    }
+
+    setSaving(true)
+    try {
+      const res = await fetch('/api/operaciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al guardar la operación.')
+      router.refresh()
+      onClose()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(15,23,42,0.5)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 1000,
+        }}
+      />
+
+      {/* Modal */}
+      <div style={{
+        position: 'fixed',
+        top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+        background: '#fff',
+        borderRadius: '16px',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        width: '100%',
+        maxWidth: '640px',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        zIndex: 1001,
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '1.25rem 1.5rem',
+          borderBottom: '1px solid #f1f5f9',
+          background: 'linear-gradient(135deg, #f0f9ff, #e0f2fe)',
+          borderRadius: '16px 16px 0 0',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: '10px',
+              background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1rem',
+            }}>
+              📋
+            </div>
+            <div>
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                Nueva Operación
+              </h2>
+              <p style={{ fontSize: '0.72rem', color: '#64748b', margin: 0, marginTop: 2 }}>
+                ID asignado: <strong style={{ color: '#2563eb' }}>{nextIDPreview}</strong>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '1.25rem', color: '#94a3b8', padding: '4px',
+              lineHeight: 1, borderRadius: '6px',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+
+            {/* Tipo de operación */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>
+                Tipo de operación <Required />
+              </label>
+              <select
+                value={form.operacion_tipo}
+                onChange={e => set('operacion_tipo', e.target.value)}
+                style={{ ...inputStyle }}
+                required
+              >
+                {TIPOS.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Aplicación */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Aplicación</label>
+              <select
+                value={form.operacion_aplicacion}
+                onChange={e => set('operacion_aplicacion', e.target.value)}
+                style={{ ...inputStyle }}
+              >
+                <option value="">— Seleccionar —</option>
+                {(aplicaciones || []).map(a => (
+                  <option key={a.aplicacion_presup} value={a.aplicacion_presup}>
+                    {a.aplicacion_presup}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Operación ID (display) */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>ID Operación</label>
+              <div style={{
+                ...inputStyle,
+                background: '#f8fafc',
+                color: '#2563eb',
+                fontWeight: 600,
+                cursor: 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+                <span style={{ fontSize: '0.75rem' }}>🔒</span>
+                {nextIDPreview}
+              </div>
+            </div>
+
+            {/* Árbol ID */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>ID Árbol</label>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', position: 'relative' }}>
+                <div style={{
+                  ...inputStyle,
+                  flex: 1,
+                  background: form.arbol_linked ? '#eff6ff' : '#f8fafc',
+                  color: form.arbol_linked ? '#2563eb' : '#94a3b8',
+                  fontWeight: form.arbol_linked ? 600 : 400,
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  cursor: 'not-allowed',
+                }}>
+                  {form.arbol_linked
+                    ? <><span>🔗</span>{form.arbol_ID}</>
+                    : <><span style={{ fontSize: '0.75rem' }}>⚡</span>{nextIDPreview} (auto)</>
+                  }
+                </div>
+                {form.arbol_linked && (
+                  <button
+                    type="button"
+                    onClick={clearArbol}
+                    title="Desvincular árbol"
+                    style={{
+                      padding: '6px 8px', border: '1px solid #e2e8f0',
+                      borderRadius: '8px', background: '#fff', cursor: 'pointer',
+                      fontSize: '0.75rem', color: '#ef4444',
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowArbolPicker(v => !v)}
+                  title="Seleccionar árbol existente"
+                  style={{
+                    padding: '6px 10px', border: '1px solid #d1d5db',
+                    borderRadius: '8px', background: '#fff', cursor: 'pointer',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  🔍
+                </button>
+
+                {/* Arbol picker dropdown */}
+                {showArbolPicker && (
+                  <div style={{
+                    position: 'absolute', top: '110%', right: 0,
+                    background: '#fff', border: '1px solid #e2e8f0',
+                    borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                    width: '280px', zIndex: 10, padding: '0.75rem',
+                  }}>
+                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
+                      Seleccionar árbol existente
+                    </p>
+                    <input
+                      type="text"
+                      placeholder="Buscar ID árbol..."
+                      value={arbolSearch}
+                      onChange={e => setArbolSearch(e.target.value)}
+                      autoFocus
+                      style={{ ...inputStyle, marginBottom: '0.5rem', fontSize: '0.8rem' }}
+                    />
+                    <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
+                      {filteredArbolIDs.length === 0 && (
+                        <p style={{ fontSize: '0.78rem', color: '#94a3b8', padding: '0.5rem 0' }}>
+                          Sin resultados
+                        </p>
+                      )}
+                      {filteredArbolIDs.map(id => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => selectArbol(id)}
+                          style={{
+                            display: 'block', width: '100%', textAlign: 'left',
+                            padding: '6px 8px', borderRadius: '6px',
+                            border: 'none', background: 'none', cursor: 'pointer',
+                            fontSize: '0.8rem', fontFamily: 'inherit',
+                            color: '#374151', fontWeight: 500,
+                          }}
+                          onMouseOver={e => e.currentTarget.style.background = '#eff6ff'}
+                          onMouseOut={e => e.currentTarget.style.background = 'none'}
+                        >
+                          {id}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* RC Número - solo si tipo RC */}
+            {isRC && (
+              <div style={fieldGroupStyle}>
+                <label style={labelStyle}>
+                  RC Número
+                  <span style={{ fontWeight: 400, color: '#94a3b8', marginLeft: 4, fontSize: '0.7rem' }}>
+                    (RC-AAAA-NNNNN)
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="RC-2025-00124"
+                  value={form.RC_Numero}
+                  onChange={e => set('RC_Numero', e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            )}
+
+            {/* Importe retenido - solo si tipo RC */}
+            {isRC && (
+              <div style={fieldGroupStyle}>
+                <label style={labelStyle}>
+                  Importe Retenido
+                  {form.arbol_linked && (
+                    <span style={{
+                      marginLeft: 6, fontSize: '0.68rem', color: '#2563eb',
+                      background: '#eff6ff', padding: '1px 6px', borderRadius: '4px',
+                    }}>
+                      heredado del árbol
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.operacion_importeretenido}
+                  onChange={e => set('operacion_importeretenido', e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            )}
+
+            {/* Fecha */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Fecha operación</label>
+              <input
+                type="datetime-local"
+                step="1"
+                value={form.operacion_fecha}
+                onChange={e => set('operacion_fecha', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Unidad gestora */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Unidad Gestora</label>
+              <input
+                type="text"
+                placeholder="Texto libre..."
+                value={form.operacion_unidadgestora}
+                onChange={e => set('operacion_unidadgestora', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Descripción - full width */}
+            <div style={{ ...fieldGroupStyle, gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Descripción</label>
+              <textarea
+                placeholder="Descripción de la operación..."
+                value={form.operacion_descripcion}
+                onChange={e => set('operacion_descripcion', e.target.value)}
+                rows={3}
+                style={{
+                  ...inputStyle,
+                  resize: 'vertical',
+                  minHeight: '72px',
+                  lineHeight: 1.5,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div style={{
+              marginTop: '1rem',
+              padding: '0.75rem 1rem',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              fontSize: '0.825rem',
+              color: '#dc2626',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}>
+              <span>⚠️</span> {error}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{
+            display: 'flex', justifyContent: 'flex-end', gap: '10px',
+            marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9',
+          }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: '9px 20px', fontSize: '0.875rem', fontFamily: 'inherit',
+                background: '#fff', border: '1px solid #d1d5db', borderRadius: '8px',
+                cursor: 'pointer', color: '#374151', fontWeight: 500,
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              style={{
+                padding: '9px 24px', fontSize: '0.875rem', fontFamily: 'inherit',
+                background: saving ? '#93c5fd' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                color: '#fff', border: 'none', borderRadius: '8px',
+                cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600,
+                boxShadow: saving ? 'none' : '0 2px 6px rgba(37,99,235,0.35)',
+                display: 'flex', alignItems: 'center', gap: '6px',
+              }}
+            >
+              {saving ? (
+                <><span style={{ animation: 'spin 1s linear infinite' }}>⏳</span> Guardando...</>
+              ) : (
+                <><span>✓</span> Crear Operación</>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
+  )
+}
+
+function Required() {
+  return <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>
+}
