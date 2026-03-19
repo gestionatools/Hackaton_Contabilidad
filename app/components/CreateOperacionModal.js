@@ -42,12 +42,14 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
     operacion_unidadgestora: '',
     operacion_fecha: '',
     operacion_aplicacion: '',
+    NIF_tercero: '',
   })
 
   const [arbolInherited, setArbolInherited] = useState({
     importeretenido: null,
     aplicacion: null,
     unidadgestora: null,
+    nif_tercero: null,
   })
 
   const [showArbolPicker, setShowArbolPicker] = useState(false)
@@ -83,18 +85,20 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
     ? arbolIDs.filter(id => id.toLowerCase().includes(arbolSearch.toLowerCase()))
     : arbolIDs
 
-  // When arbol selected, inherit importeretenido, aplicacion, and unidadgestora
+  // When arbol selected, inherit importeretenido, aplicacion, unidadgestora, and NIF_tercero
   const selectArbol = (arbolId) => {
     const matchingRows = (operaciones || []).filter(op => op.arbol_ID === arbolId)
     const withRetenido = matchingRows.find(op => op.operacion_importeretenido != null)
     const withAplicacion = matchingRows.find(op => op.operacion_aplicacion != null)
     const withUnidad = matchingRows.find(op => op.operacion_unidadgestora != null)
+    const withNIF = matchingRows.find(op => op.NIF_tercero != null && op.NIF_tercero !== '')
 
     const inheritedRetenido = withRetenido?.operacion_importeretenido ?? null
     const inheritedAplicacion = withAplicacion?.operacion_aplicacion ?? null
     const inheritedUnidad = withUnidad?.operacion_unidadgestora ?? null
+    const inheritedNIF = withNIF?.NIF_tercero ?? null
 
-    setArbolInherited({ importeretenido: inheritedRetenido, aplicacion: inheritedAplicacion, unidadgestora: inheritedUnidad })
+    setArbolInherited({ importeretenido: inheritedRetenido, aplicacion: inheritedAplicacion, unidadgestora: inheritedUnidad, nif_tercero: inheritedNIF })
     setForm(prev => ({
       ...prev,
       arbol_ID: arbolId,
@@ -102,6 +106,7 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
       ...(inheritedRetenido != null && { operacion_importeretenido: inheritedRetenido }),
       ...(inheritedAplicacion != null && { operacion_aplicacion: inheritedAplicacion }),
       ...(inheritedUnidad != null && { operacion_unidadgestora: inheritedUnidad }),
+      ...(inheritedNIF != null && { NIF_tercero: inheritedNIF }),
     }))
     setShowArbolPicker(false)
     setArbolSearch('')
@@ -115,8 +120,9 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
       ...(arbolInherited.importeretenido != null && { operacion_importeretenido: '' }),
       ...(arbolInherited.aplicacion != null && { operacion_aplicacion: '' }),
       ...(arbolInherited.unidadgestora != null && { operacion_unidadgestora: '' }),
+      ...(arbolInherited.nif_tercero != null && { NIF_tercero: '' }),
     }))
-    setArbolInherited({ importeretenido: null, aplicacion: null, unidadgestora: null })
+    setArbolInherited({ importeretenido: null, aplicacion: null, unidadgestora: null, nif_tercero: null })
   }
 
   const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
@@ -261,24 +267,6 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
               </select>
             </div>
 
-            {/* Operación ID (display) */}
-            <div style={fieldGroupStyle}>
-              <label style={labelStyle}>ID Operación</label>
-              <div style={{
-                ...inputStyle,
-                background: '#f8fafc',
-                color: '#2563eb',
-                fontWeight: 600,
-                cursor: 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}>
-                <span style={{ fontSize: '0.75rem' }}>🔒</span>
-                {nextIDPreview}
-              </div>
-            </div>
-
             {/* Árbol ID */}
             <div style={fieldGroupStyle}>
               <label style={labelStyle}>ID Árbol</label>
@@ -373,25 +361,6 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
               </div>
             </div>
 
-            {/* RC Número - solo si tipo RC */}
-            {isRC && (
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  RC Número
-                  <span style={{ fontWeight: 400, color: '#94a3b8', marginLeft: 4, fontSize: '0.7rem' }}>
-                    (RC-AAAA-NNNNN)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="RC-2025-00124"
-                  value={form.RC_Numero}
-                  onChange={e => set('RC_Numero', e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-            )}
-
             {/* Importe retenido - si tipo RC o árbol vinculado */}
             {showImporteRetenido && (
               <div style={fieldGroupStyle}>
@@ -460,6 +429,26 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
                 style={{
                   ...inputStyle,
                   ...(form.arbol_linked && arbolInherited.unidadgestora != null ? { background: '#eff6ff', borderColor: '#bfdbfe' } : {}),
+                }}
+              />
+            </div>
+
+            {/* NIF Tercero */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>
+                NIF Tercero
+                {form.arbol_linked && arbolInherited.nif_tercero != null && (
+                  <InheritedBadge />
+                )}
+              </label>
+              <input
+                type="text"
+                placeholder="Ej: 12345678A"
+                value={form.NIF_tercero}
+                onChange={e => set('NIF_tercero', e.target.value)}
+                style={{
+                  ...inputStyle,
+                  ...(form.arbol_linked && arbolInherited.nif_tercero != null ? { background: '#eff6ff', borderColor: '#bfdbfe' } : {}),
                 }}
               />
             </div>

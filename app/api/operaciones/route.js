@@ -25,6 +25,7 @@ export async function POST(request) {
     operacion_unidadgestora,
     operacion_fecha,
     operacion_aplicacion,
+    NIF_tercero,
   } = body
 
   if (!operacion_tipo) {
@@ -83,6 +84,7 @@ export async function POST(request) {
     operacion_unidadgestora: operacion_unidadgestora?.trim() || null,
     operacion_fecha: parsedFecha,
     operacion_aplicacion: operacion_aplicacion || null,
+    NIF_tercero: NIF_tercero?.trim() || null,
   }
 
   // RC-specific fields
