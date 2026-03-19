@@ -38,7 +38,7 @@ function formatDate(val) {
   return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function OperacionRow({ op }) {
+function OperacionRow({ op, onEdit }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px',
@@ -79,11 +79,26 @@ function OperacionRow({ op }) {
           {formatDate(op.operacion_fecha)}
         </span>
       )}
+      {onEdit && (
+        <button
+          onClick={() => onEdit(op)}
+          title="Editar operación"
+          style={{
+            marginLeft: 'auto', padding: '3px 8px', border: '1px solid #d1d5db',
+            borderRadius: '6px', background: '#fff', cursor: 'pointer',
+            fontSize: '0.75rem', color: '#374151', fontFamily: 'inherit',
+          }}
+          onMouseOver={e => { e.currentTarget.style.background = '#fef9c3'; e.currentTarget.style.borderColor = '#ca8a04' }}
+          onMouseOut={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#d1d5db' }}
+        >
+          ✏️
+        </button>
+      )}
     </div>
   )
 }
 
-function ArbolAccordion({ arbolId, operations }) {
+function ArbolAccordion({ arbolId, operations, onEdit }) {
   const [open, setOpen] = useState(false)
 
   // RC is the top-level header; if no RC, use the first operation
@@ -190,8 +205,27 @@ function ArbolAccordion({ arbolId, operations }) {
       {/* Child operations */}
       {open && (
         <div>
+          {/* Header op edit button */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 16px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+            {onEdit && (
+              <button
+                onClick={() => onEdit(headerOp)}
+                title={`Editar ${headerOp.operacion_ID}`}
+                style={{
+                  padding: '3px 10px', border: '1px solid #d1d5db',
+                  borderRadius: '6px', background: '#fff', cursor: 'pointer',
+                  fontSize: '0.75rem', color: '#374151', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: '4px',
+                }}
+                onMouseOver={e => { e.currentTarget.style.background = '#fef9c3'; e.currentTarget.style.borderColor = '#ca8a04' }}
+                onMouseOut={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#d1d5db' }}
+              >
+                ✏️ <span style={{ fontSize: '0.7rem' }}>{headerOp.operacion_ID}</span>
+              </button>
+            )}
+          </div>
           {childOps.length > 0 ? (
-            childOps.map(op => <OperacionRow key={op.operacion_ID} op={op} />)
+            childOps.map(op => <OperacionRow key={op.operacion_ID} op={op} onEdit={onEdit} />)
           ) : (
             <div style={{ padding: '10px 48px', fontSize: '0.79rem', color: '#94a3b8', background: '#fff' }}>
               No hay más operaciones en este árbol.
@@ -203,7 +237,7 @@ function ArbolAccordion({ arbolId, operations }) {
   )
 }
 
-export default function TreeViewOperaciones({ operaciones }) {
+export default function TreeViewOperaciones({ operaciones, onEdit }) {
   const trees = useMemo(() => {
     const map = {}
     ;(operaciones || []).forEach(op => {
@@ -231,7 +265,7 @@ export default function TreeViewOperaciones({ operaciones }) {
   return (
     <div>
       {arbolIds.map(id => (
-        <ArbolAccordion key={id} arbolId={id} operations={trees[id]} />
+        <ArbolAccordion key={id} arbolId={id} operations={trees[id]} onEdit={onEdit} />
       ))}
     </div>
   )

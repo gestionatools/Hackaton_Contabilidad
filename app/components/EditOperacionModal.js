@@ -30,26 +30,28 @@ const fieldGroupStyle = {
   flexDirection: 'column',
 }
 
-export default function CreateOperacionModal({ onClose, aplicaciones, operaciones, onSaved }) {
-  const [form, setForm] = useState({
-    operacion_tipo: 'RC',
-    arbol_ID: '',
-    arbol_linked: false,
-    RC_Numero: '',
-    operacion_importeretenido: '',
-    operacion_importegastado: '',
-    operacion_descripcion: '',
-    operacion_unidadgestora: '',
-    operacion_fecha: '',
-    operacion_aplicacion: '',
-    NIF_tercero: '',
-  })
+// Format datetime-local value from ISO string
+function toDatetimeLocal(isoString) {
+  if (!isoString) return ''
+  const d = new Date(isoString)
+  if (isNaN(d)) return ''
+  // Format: YYYY-MM-DDTHH:MM
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
-  const [arbolInherited, setArbolInherited] = useState({
-    importeretenido: null,
-    aplicacion: null,
-    unidadgestora: null,
-    nif_tercero: null,
+export default function EditOperacionModal({ operacion, onClose, aplicaciones, operaciones, onSaved }) {
+  const [form, setForm] = useState({
+    operacion_tipo: operacion.operacion_tipo || 'RC',
+    arbol_ID: operacion.arbol_ID || '',
+    arbol_linked: operacion.arbol_ID && operacion.arbol_ID !== operacion.operacion_ID,
+    operacion_importeretenido: operacion.operacion_importeretenido ?? '',
+    operacion_importegastado: operacion.operacion_importegastado ?? '',
+    operacion_descripcion: operacion.operacion_descripcion || '',
+    operacion_unidadgestora: operacion.operacion_unidadgestora || '',
+    operacion_fecha: toDatetimeLocal(operacion.operacion_fecha),
+    operacion_aplicacion: operacion.operacion_aplicacion || '',
+    NIF_tercero: operacion.NIF_tercero || '',
   })
 
   const [showArbolPicker, setShowArbolPicker] = useState(false)
@@ -61,34 +63,7 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
   const isOADO = form.operacion_tipo === 'O' || form.operacion_tipo === 'ADO'
   const showImporteRetenido = isRC || form.arbol_linked
 
-  // Preview of next operacion_ID (client-side estimate)
-  const nextIDPreview = useMemo(() => {
-    const maxNum = (operaciones || []).reduce((max, op) => {
-      const match = op.operacion_ID?.match(/CONT-OP-(\d+)/)
-      if (match) {
-        const n = parseInt(match[1], 10)
-        return n > max ? n : max
-      }
-      return max
-    }, 0)
-    return `CONT-OP-${String(maxNum + 1).padStart(6, '0')}`
-  }, [operaciones])
-
-  // Preview of next RC_Numero (client-side estimate)
-  const nextRCPreview = useMemo(() => {
-    const currentYear = new Date().getFullYear()
-    const maxRCNum = (operaciones || []).reduce((max, op) => {
-      const match = op.RC_Numero?.match(/^RC-\d{4}-(\d+)$/)
-      if (match) {
-        const n = parseInt(match[1], 10)
-        return n > max ? n : max
-      }
-      return max
-    }, 0)
-    return `RC-${currentYear}-${String(maxRCNum + 1).padStart(5, '0')}`
-  }, [operaciones])
-
-  // Distinct arbol_IDs from existing operaciones (only real trees = arbol_ID values present in table)
+  // Distinct arbol_IDs from existing operaciones (excluding this operation's own ID if it's a self-tree)
   const arbolIDs = useMemo(() => {
     const ids = new Set()
     ;(operaciones || []).forEach(op => { if (op.arbol_ID) ids.add(op.arbol_ID) })
@@ -99,28 +74,11 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
     ? arbolIDs.filter(id => id.toLowerCase().includes(arbolSearch.toLowerCase()))
     : arbolIDs
 
-  // When arbol selected, inherit importeretenido, aplicacion, unidadgestora, and NIF_tercero
   const selectArbol = (arbolId) => {
-    const matchingRows = (operaciones || []).filter(op => op.arbol_ID === arbolId)
-    const withRetenido = matchingRows.find(op => op.operacion_importeretenido != null)
-    const withAplicacion = matchingRows.find(op => op.operacion_aplicacion != null)
-    const withUnidad = matchingRows.find(op => op.operacion_unidadgestora != null)
-    const withNIF = matchingRows.find(op => op.NIF_tercero != null && op.NIF_tercero !== '')
-
-    const inheritedRetenido = withRetenido?.operacion_importeretenido ?? null
-    const inheritedAplicacion = withAplicacion?.operacion_aplicacion ?? null
-    const inheritedUnidad = withUnidad?.operacion_unidadgestora ?? null
-    const inheritedNIF = withNIF?.NIF_tercero ?? null
-
-    setArbolInherited({ importeretenido: inheritedRetenido, aplicacion: inheritedAplicacion, unidadgestora: inheritedUnidad, nif_tercero: inheritedNIF })
     setForm(prev => ({
       ...prev,
       arbol_ID: arbolId,
-      arbol_linked: true,
-      ...(inheritedRetenido != null && { operacion_importeretenido: inheritedRetenido }),
-      ...(inheritedAplicacion != null && { operacion_aplicacion: inheritedAplicacion }),
-      ...(inheritedUnidad != null && { operacion_unidadgestora: inheritedUnidad }),
-      ...(inheritedNIF != null && { NIF_tercero: inheritedNIF }),
+      arbol_linked: arbolId !== operacion.operacion_ID,
     }))
     setShowArbolPicker(false)
     setArbolSearch('')
@@ -129,14 +87,9 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
   const clearArbol = () => {
     setForm(prev => ({
       ...prev,
-      arbol_ID: '',
+      arbol_ID: operacion.operacion_ID,
       arbol_linked: false,
-      ...(arbolInherited.importeretenido != null && { operacion_importeretenido: '' }),
-      ...(arbolInherited.aplicacion != null && { operacion_aplicacion: '' }),
-      ...(arbolInherited.unidadgestora != null && { operacion_unidadgestora: '' }),
-      ...(arbolInherited.nif_tercero != null && { NIF_tercero: '' }),
     }))
-    setArbolInherited({ importeretenido: null, aplicacion: null, unidadgestora: null, nif_tercero: null })
   }
 
   const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
@@ -145,12 +98,12 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
     e.preventDefault()
     setError(null)
 
-    // Basic validation
     if (!form.operacion_tipo) return setError('El tipo de operación es obligatorio.')
+
     setSaving(true)
     try {
-      const res = await fetch('/api/operaciones', {
-        method: 'POST',
+      const res = await fetch(`/api/operaciones/${operacion.operacion_ID}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
@@ -197,23 +150,26 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '1.25rem 1.5rem',
           borderBottom: '1px solid #f1f5f9',
-          background: 'linear-gradient(135deg, #f0f9ff, #e0f2fe)',
+          background: 'linear-gradient(135deg, #fefce8, #fef9c3)',
           borderRadius: '16px 16px 0 0',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
               width: 36, height: 36, borderRadius: '10px',
-              background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: '#ca8a04', display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '1rem',
             }}>
-              📋
+              ✏️
             </div>
             <div>
               <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                Nueva Operación
+                Editar Operación
               </h2>
               <p style={{ fontSize: '0.72rem', color: '#64748b', margin: 0, marginTop: 2 }}>
-                ID asignado: <strong style={{ color: '#2563eb' }}>{nextIDPreview}</strong>
+                ID: <strong style={{ color: '#ca8a04', fontFamily: 'monospace' }}>{operacion.operacion_ID}</strong>
+                {operacion.RC_Numero && (
+                  <span style={{ marginLeft: 8, color: '#1d4ed8' }}>{operacion.RC_Numero}</span>
+                )}
               </p>
             </div>
           </div>
@@ -250,10 +206,10 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
               </select>
             </div>
 
-            {/* RC Número - auto-generated preview, only shown for type RC */}
-            {isRC && (
+            {/* RC Número - read-only, show existing value */}
+            {isRC && operacion.RC_Numero && (
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>RC Número <span style={{ color: '#2563eb', fontSize: '0.7rem', fontWeight: 400 }}>(auto)</span></label>
+                <label style={labelStyle}>RC Número <span style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 400 }}>(generado)</span></label>
                 <div style={{
                   ...inputStyle,
                   background: '#eff6ff',
@@ -261,28 +217,19 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
                   fontWeight: 600,
                   fontFamily: 'monospace',
                   cursor: 'not-allowed',
-                  display: 'flex', alignItems: 'center', gap: '6px',
                 }}>
-                  <span style={{ fontSize: '0.75rem' }}>⚡</span>{nextRCPreview}
+                  {operacion.RC_Numero}
                 </div>
               </div>
             )}
 
             {/* Aplicación */}
             <div style={fieldGroupStyle}>
-              <label style={labelStyle}>
-                Aplicación
-                {form.arbol_linked && arbolInherited.aplicacion != null && (
-                  <InheritedBadge />
-                )}
-              </label>
+              <label style={labelStyle}>Aplicación</label>
               <select
                 value={form.operacion_aplicacion}
                 onChange={e => set('operacion_aplicacion', e.target.value)}
-                style={{
-                  ...inputStyle,
-                  ...(form.arbol_linked && arbolInherited.aplicacion != null ? { background: '#eff6ff', borderColor: '#bfdbfe' } : {}),
-                }}
+                style={{ ...inputStyle }}
               >
                 <option value="">— Seleccionar —</option>
                 {(aplicaciones || []).map(a => (
@@ -308,7 +255,7 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
                 }}>
                   {form.arbol_linked
                     ? <><span>🔗</span>{form.arbol_ID}</>
-                    : <><span style={{ fontSize: '0.75rem' }}>⚡</span>{nextIDPreview} (auto)</>
+                    : <><span style={{ fontSize: '0.75rem' }}>🌳</span>{form.arbol_ID || operacion.operacion_ID}</>
                   }
                 </div>
                 {form.arbol_linked && (
@@ -387,30 +334,22 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
               </div>
             </div>
 
-            {/* Importe retenido - si tipo RC o árbol vinculado */}
+            {/* Importe retenido */}
             {showImporteRetenido && (
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  Importe Retenido
-                  {form.arbol_linked && arbolInherited.importeretenido != null && (
-                    <InheritedBadge />
-                  )}
-                </label>
+                <label style={labelStyle}>Importe Retenido</label>
                 <input
                   type="number"
                   step="0.01"
                   placeholder="0.00"
                   value={form.operacion_importeretenido}
                   onChange={e => set('operacion_importeretenido', e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    ...(form.arbol_linked && arbolInherited.importeretenido != null ? { background: '#eff6ff', borderColor: '#bfdbfe' } : {}),
-                  }}
+                  style={{ ...inputStyle }}
                 />
               </div>
             )}
 
-            {/* Importe gastado - solo si tipo O o ADO */}
+            {/* Importe gastado */}
             {isOADO && (
               <div style={fieldGroupStyle}>
                 <label style={labelStyle}>
@@ -441,41 +380,25 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
 
             {/* Unidad gestora */}
             <div style={fieldGroupStyle}>
-              <label style={labelStyle}>
-                Unidad Gestora
-                {form.arbol_linked && arbolInherited.unidadgestora != null && (
-                  <InheritedBadge />
-                )}
-              </label>
+              <label style={labelStyle}>Unidad Gestora</label>
               <input
                 type="text"
                 placeholder="Texto libre..."
                 value={form.operacion_unidadgestora}
                 onChange={e => set('operacion_unidadgestora', e.target.value)}
-                style={{
-                  ...inputStyle,
-                  ...(form.arbol_linked && arbolInherited.unidadgestora != null ? { background: '#eff6ff', borderColor: '#bfdbfe' } : {}),
-                }}
+                style={{ ...inputStyle }}
               />
             </div>
 
             {/* NIF Tercero */}
             <div style={fieldGroupStyle}>
-              <label style={labelStyle}>
-                NIF Tercero
-                {form.arbol_linked && arbolInherited.nif_tercero != null && (
-                  <InheritedBadge />
-                )}
-              </label>
+              <label style={labelStyle}>NIF Tercero</label>
               <input
                 type="text"
                 placeholder="Ej: 12345678A"
                 value={form.NIF_tercero}
                 onChange={e => set('NIF_tercero', e.target.value)}
-                style={{
-                  ...inputStyle,
-                  ...(form.arbol_linked && arbolInherited.nif_tercero != null ? { background: '#eff6ff', borderColor: '#bfdbfe' } : {}),
-                }}
+                style={{ ...inputStyle }}
               />
             </div>
 
@@ -536,17 +459,17 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
               disabled={saving}
               style={{
                 padding: '9px 24px', fontSize: '0.875rem', fontFamily: 'inherit',
-                background: saving ? '#93c5fd' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                background: saving ? '#fcd34d' : 'linear-gradient(135deg, #ca8a04, #a16207)',
                 color: '#fff', border: 'none', borderRadius: '8px',
                 cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600,
-                boxShadow: saving ? 'none' : '0 2px 6px rgba(37,99,235,0.35)',
+                boxShadow: saving ? 'none' : '0 2px 6px rgba(202,138,4,0.35)',
                 display: 'flex', alignItems: 'center', gap: '6px',
               }}
             >
               {saving ? (
-                <><span style={{ animation: 'spin 1s linear infinite' }}>⏳</span> Guardando...</>
+                <><span>⏳</span> Guardando...</>
               ) : (
-                <><span>✓</span> Crear Operación</>
+                <><span>✓</span> Guardar Cambios</>
               )}
             </button>
           </div>
@@ -558,15 +481,4 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
 
 function Required() {
   return <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>
-}
-
-function InheritedBadge() {
-  return (
-    <span style={{
-      marginLeft: 6, fontSize: '0.68rem', color: '#2563eb',
-      background: '#eff6ff', padding: '1px 6px', borderRadius: '4px',
-    }}>
-      heredado del árbol
-    </span>
-  )
 }

@@ -32,20 +32,10 @@ export async function POST(request) {
     return NextResponse.json({ error: 'El tipo de operación es obligatorio.' }, { status: 400 })
   }
 
-  // Validate RC_Numero format if provided
-  if (operacion_tipo === 'RC' && RC_Numero && RC_Numero.trim() !== '') {
-    if (!/^RC-\d{4}-\d{5}$/.test(RC_Numero.trim())) {
-      return NextResponse.json(
-        { error: 'RC Número debe tener formato RC-AAAA-NNNNN (ej: RC-2025-00124).' },
-        { status: 400 }
-      )
-    }
-  }
-
-  // Determine next operacion_ID by finding the max existing number
+  // Determine next operacion_ID and RC_Numero by querying existing records
   const { data: ops, error: opsError } = await supabase
     .from('HACK_CONTA_Operaciones')
-    .select('operacion_ID')
+    .select('operacion_ID, RC_Numero')
 
   if (opsError) {
     return NextResponse.json({ error: `Error al consultar operaciones: ${opsError.message}` }, { status: 500 })
@@ -61,6 +51,21 @@ export async function POST(request) {
   }, 0)
 
   const operacion_ID = `CONT-OP-${String(maxNum + 1).padStart(6, '0')}`
+
+  // Auto-generate RC_Numero for RC operations
+  let generatedRC_Numero = null
+  if (operacion_tipo === 'RC') {
+    const currentYear = new Date().getFullYear()
+    const maxRCNum = (ops || []).reduce((max, op) => {
+      const match = op.RC_Numero?.match(/^RC-\d{4}-(\d+)$/)
+      if (match) {
+        const n = parseInt(match[1], 10)
+        return n > max ? n : max
+      }
+      return max
+    }, 0)
+    generatedRC_Numero = `RC-${currentYear}-${String(maxRCNum + 1).padStart(5, '0')}`
+  }
 
   // Determine arbol_ID: use linked one or default to new operacion_ID
   const arbol_ID = arbol_linked && bodyArbolID ? bodyArbolID : operacion_ID
@@ -87,9 +92,9 @@ export async function POST(request) {
     NIF_tercero: NIF_tercero?.trim() || null,
   }
 
-  // RC-specific fields
+  // RC-specific fields: always use auto-generated RC_Numero
   if (operacion_tipo === 'RC') {
-    insertPayload.RC_Numero = RC_Numero?.trim() || null
+    insertPayload.RC_Numero = generatedRC_Numero
   }
 
   // Save importeretenido for all types when provided (inherited from arbol or RC)
@@ -125,5 +130,5 @@ export async function POST(request) {
     }
   }
 
-  return NextResponse.json({ success: true, operacion_ID })
+  return NextResponse.json({ success: true, operacion_ID, RC_Numero: generatedRC_Numero })
 }
