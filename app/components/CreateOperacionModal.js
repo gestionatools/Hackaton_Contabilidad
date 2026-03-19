@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 
 const TIPOS = ['RC', 'A', 'D', 'O', 'ADO', 'AD']
 
@@ -31,19 +30,24 @@ const fieldGroupStyle = {
   flexDirection: 'column',
 }
 
-export default function CreateOperacionModal({ onClose, aplicaciones, operaciones }) {
-  const router = useRouter()
-
+export default function CreateOperacionModal({ onClose, aplicaciones, operaciones, onSaved }) {
   const [form, setForm] = useState({
     operacion_tipo: 'RC',
     arbol_ID: '',
     arbol_linked: false,
     RC_Numero: '',
     operacion_importeretenido: '',
+    operacion_importegastado: '',
     operacion_descripcion: '',
     operacion_unidadgestora: '',
     operacion_fecha: '',
     operacion_aplicacion: '',
+  })
+
+  const [arbolInherited, setArbolInherited] = useState({
+    importeretenido: null,
+    aplicacion: null,
+    unidadgestora: null,
   })
 
   const [showArbolPicker, setShowArbolPicker] = useState(false)
@@ -52,6 +56,8 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
   const [error, setError] = useState(null)
 
   const isRC = form.operacion_tipo === 'RC'
+  const isOADO = form.operacion_tipo === 'O' || form.operacion_tipo === 'ADO'
+  const showImporteRetenido = isRC || form.arbol_linked
 
   // Preview of next operacion_ID (client-side estimate)
   const nextIDPreview = useMemo(() => {
@@ -77,22 +83,40 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
     ? arbolIDs.filter(id => id.toLowerCase().includes(arbolSearch.toLowerCase()))
     : arbolIDs
 
-  // When arbol selected, inherit importeretenido if RC
+  // When arbol selected, inherit importeretenido, aplicacion, and unidadgestora
   const selectArbol = (arbolId) => {
     const matchingRows = (operaciones || []).filter(op => op.arbol_ID === arbolId)
-    const inherited = matchingRows.find(op => op.operacion_importeretenido != null)
+    const withRetenido = matchingRows.find(op => op.operacion_importeretenido != null)
+    const withAplicacion = matchingRows.find(op => op.operacion_aplicacion != null)
+    const withUnidad = matchingRows.find(op => op.operacion_unidadgestora != null)
+
+    const inheritedRetenido = withRetenido?.operacion_importeretenido ?? null
+    const inheritedAplicacion = withAplicacion?.operacion_aplicacion ?? null
+    const inheritedUnidad = withUnidad?.operacion_unidadgestora ?? null
+
+    setArbolInherited({ importeretenido: inheritedRetenido, aplicacion: inheritedAplicacion, unidadgestora: inheritedUnidad })
     setForm(prev => ({
       ...prev,
       arbol_ID: arbolId,
       arbol_linked: true,
-      operacion_importeretenido: inherited?.operacion_importeretenido ?? prev.operacion_importeretenido,
+      ...(inheritedRetenido != null && { operacion_importeretenido: inheritedRetenido }),
+      ...(inheritedAplicacion != null && { operacion_aplicacion: inheritedAplicacion }),
+      ...(inheritedUnidad != null && { operacion_unidadgestora: inheritedUnidad }),
     }))
     setShowArbolPicker(false)
     setArbolSearch('')
   }
 
   const clearArbol = () => {
-    setForm(prev => ({ ...prev, arbol_ID: '', arbol_linked: false }))
+    setForm(prev => ({
+      ...prev,
+      arbol_ID: '',
+      arbol_linked: false,
+      ...(arbolInherited.importeretenido != null && { operacion_importeretenido: '' }),
+      ...(arbolInherited.aplicacion != null && { operacion_aplicacion: '' }),
+      ...(arbolInherited.unidadgestora != null && { operacion_unidadgestora: '' }),
+    }))
+    setArbolInherited({ importeretenido: null, aplicacion: null, unidadgestora: null })
   }
 
   const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
@@ -118,7 +142,7 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error al guardar la operación.')
-      router.refresh()
+      await onSaved?.()
       onClose()
     } catch (err) {
       setError(err.message)
@@ -214,11 +238,19 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
 
             {/* Aplicación */}
             <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Aplicación</label>
+              <label style={labelStyle}>
+                Aplicación
+                {form.arbol_linked && arbolInherited.aplicacion != null && (
+                  <InheritedBadge />
+                )}
+              </label>
               <select
                 value={form.operacion_aplicacion}
                 onChange={e => set('operacion_aplicacion', e.target.value)}
-                style={{ ...inputStyle }}
+                style={{
+                  ...inputStyle,
+                  ...(form.arbol_linked && arbolInherited.aplicacion != null ? { background: '#eff6ff', borderColor: '#bfdbfe' } : {}),
+                }}
               >
                 <option value="">— Seleccionar —</option>
                 {(aplicaciones || []).map(a => (
@@ -360,18 +392,13 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
               </div>
             )}
 
-            {/* Importe retenido - solo si tipo RC */}
-            {isRC && (
+            {/* Importe retenido - si tipo RC o árbol vinculado */}
+            {showImporteRetenido && (
               <div style={fieldGroupStyle}>
                 <label style={labelStyle}>
                   Importe Retenido
-                  {form.arbol_linked && (
-                    <span style={{
-                      marginLeft: 6, fontSize: '0.68rem', color: '#2563eb',
-                      background: '#eff6ff', padding: '1px 6px', borderRadius: '4px',
-                    }}>
-                      heredado del árbol
-                    </span>
+                  {form.arbol_linked && arbolInherited.importeretenido != null && (
+                    <InheritedBadge />
                   )}
                 </label>
                 <input
@@ -380,6 +407,26 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
                   placeholder="0.00"
                   value={form.operacion_importeretenido}
                   onChange={e => set('operacion_importeretenido', e.target.value)}
+                  style={{
+                    ...inputStyle,
+                    ...(form.arbol_linked && arbolInherited.importeretenido != null ? { background: '#eff6ff', borderColor: '#bfdbfe' } : {}),
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Importe gastado - solo si tipo O o ADO */}
+            {isOADO && (
+              <div style={fieldGroupStyle}>
+                <label style={labelStyle}>
+                  Importe Gastado <Required />
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.operacion_importegastado}
+                  onChange={e => set('operacion_importegastado', e.target.value)}
                   style={inputStyle}
                 />
               </div>
@@ -399,13 +446,21 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
 
             {/* Unidad gestora */}
             <div style={fieldGroupStyle}>
-              <label style={labelStyle}>Unidad Gestora</label>
+              <label style={labelStyle}>
+                Unidad Gestora
+                {form.arbol_linked && arbolInherited.unidadgestora != null && (
+                  <InheritedBadge />
+                )}
+              </label>
               <input
                 type="text"
                 placeholder="Texto libre..."
                 value={form.operacion_unidadgestora}
                 onChange={e => set('operacion_unidadgestora', e.target.value)}
-                style={inputStyle}
+                style={{
+                  ...inputStyle,
+                  ...(form.arbol_linked && arbolInherited.unidadgestora != null ? { background: '#eff6ff', borderColor: '#bfdbfe' } : {}),
+                }}
               />
             </div>
 
@@ -488,4 +543,15 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
 
 function Required() {
   return <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>
+}
+
+function InheritedBadge() {
+  return (
+    <span style={{
+      marginLeft: 6, fontSize: '0.68rem', color: '#2563eb',
+      background: '#eff6ff', padding: '1px 6px', borderRadius: '4px',
+    }}>
+      heredado del árbol
+    </span>
+  )
 }

@@ -20,6 +20,7 @@ export async function POST(request) {
     arbol_linked,
     RC_Numero,
     operacion_importeretenido,
+    operacion_importegastado,
     operacion_descripcion,
     operacion_unidadgestora,
     operacion_fecha,
@@ -87,8 +88,18 @@ export async function POST(request) {
   // RC-specific fields
   if (operacion_tipo === 'RC') {
     insertPayload.RC_Numero = RC_Numero?.trim() || null
-    const imp = parseFloat(operacion_importeretenido)
-    insertPayload.operacion_importeretenido = isNaN(imp) ? null : imp
+  }
+
+  // Save importeretenido for all types when provided (inherited from arbol or RC)
+  const impRet = parseFloat(operacion_importeretenido)
+  if (!isNaN(impRet)) {
+    insertPayload.operacion_importeretenido = impRet
+  }
+
+  // O and ADO: save importegastado
+  if (operacion_tipo === 'O' || operacion_tipo === 'ADO') {
+    const impGast = parseFloat(operacion_importegastado)
+    insertPayload.operacion_importegastado = isNaN(impGast) ? null : impGast
   }
 
   const { error: insertError } = await supabase
