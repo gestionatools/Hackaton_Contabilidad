@@ -1,6 +1,6 @@
 export const metadata = {
-  title: 'Hackaton URBA',
-  description: 'Visor de datos urbanísticos',
+  title: 'Hackaton Contabilidad',
+  description: 'Visor de datos contables',
 }
 
 export default function RootLayout({ children }) {
