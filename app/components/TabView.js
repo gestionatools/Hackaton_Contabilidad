@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import DataTable from './DataTable'
 import CreateOperacionModal from './CreateOperacionModal'
 
@@ -67,9 +67,26 @@ const TIPO_BADGE_COLORS = {
   AD: { bg: '#ffedd5', color: '#9a3412', border: '#fed7aa' },
 }
 
-export default function TabView({ aplicaciones, operaciones }) {
+export default function TabView({ aplicaciones: initialAplicaciones, operaciones: initialOperaciones }) {
   const [tab, setTab] = useState('operaciones')
   const [showModal, setShowModal] = useState(false)
+  const [operaciones, setOperaciones] = useState(initialOperaciones || [])
+  const [aplicaciones, setAplicaciones] = useState(initialAplicaciones || [])
+  const [refreshing, setRefreshing] = useState(false)
+
+  const fetchData = useCallback(async () => {
+    setRefreshing(true)
+    try {
+      const res = await fetch('/api/data')
+      if (res.ok) {
+        const data = await res.json()
+        setOperaciones(data.operaciones || [])
+        setAplicaciones(data.aplicaciones || [])
+      }
+    } finally {
+      setRefreshing(false)
+    }
+  }, [])
 
   const tabs = [
     { key: 'operaciones', label: 'Operaciones', count: operaciones?.length ?? 0, icon: '📋' },
@@ -134,32 +151,63 @@ export default function TabView({ aplicaciones, operaciones }) {
         </div>
 
         {/* Action buttons */}
-        {tab === 'operaciones' && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Refresh button */}
           <button
-            onClick={() => setShowModal(true)}
+            onClick={fetchData}
+            disabled={refreshing}
+            title="Refrescar datos desde la base de datos"
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '8px 18px',
-              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-              color: '#fff',
-              border: 'none',
+              padding: '8px 14px',
+              background: '#fff',
+              color: refreshing ? '#94a3b8' : '#374151',
+              border: '1px solid #d1d5db',
               borderRadius: '8px',
               fontSize: '0.875rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(37,99,235,0.35)',
+              fontWeight: 500,
+              cursor: refreshing ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit',
               transition: 'all 0.15s ease',
             }}
-            onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-            onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+            onMouseOver={e => { if (!refreshing) e.currentTarget.style.background = '#f8fafc' }}
+            onMouseOut={e => { e.currentTarget.style.background = '#fff' }}
           >
-            <span style={{ fontSize: '1rem' }}>＋</span>
-            Nueva Operación
+            <span style={{ display: 'inline-block', animation: refreshing ? 'spin 1s linear infinite' : 'none' }}>
+              🔄
+            </span>
+            {refreshing ? 'Actualizando...' : 'Refrescar'}
           </button>
-        )}
+
+          {tab === 'operaciones' && (
+            <button
+              onClick={() => setShowModal(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 18px',
+                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(37,99,235,0.35)',
+                fontFamily: 'inherit',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <span style={{ fontSize: '1rem' }}>＋</span>
+              Nueva Operación
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tab content */}
@@ -204,6 +252,7 @@ export default function TabView({ aplicaciones, operaciones }) {
           onClose={() => setShowModal(false)}
           aplicaciones={aplicaciones}
           operaciones={operaciones}
+          onSaved={fetchData}
         />
       )}
     </div>
