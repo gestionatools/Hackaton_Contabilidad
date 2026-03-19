@@ -14,6 +14,7 @@ export default function DataTable({
   allColumns = [],
   columnLabels = {},
   tipoBadgeColors = {},
+  onEdit = null,
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filters, setFilters] = useState({})
@@ -293,6 +294,17 @@ export default function DataTable({
           <table style={{ borderCollapse: 'collapse', fontSize: '0.82rem', width: '100%', minWidth: 'max-content' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
+                {onEdit && (
+                  <th style={{
+                    padding: '10px 10px',
+                    fontWeight: 600, fontSize: '0.75rem', color: '#374151',
+                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                    whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0',
+                    borderRight: '1px solid #e2e8f0', width: 40,
+                  }}>
+                    Ed.
+                  </th>
+                )}
                 {columnOrder.map(col => (
                   <th
                     key={col}
@@ -347,6 +359,29 @@ export default function DataTable({
                   onMouseOver={e => e.currentTarget.style.background = '#eff6ff'}
                   onMouseOut={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}
                 >
+                  {onEdit && (
+                    <td style={{
+                      padding: '6px 8px',
+                      borderBottom: '1px solid #f1f5f9',
+                      borderRight: '1px solid #f1f5f9',
+                      textAlign: 'center',
+                    }}>
+                      <button
+                        onClick={() => onEdit(row)}
+                        title="Editar operación"
+                        style={{
+                          padding: '3px 8px', border: '1px solid #d1d5db',
+                          borderRadius: '6px', background: '#fff', cursor: 'pointer',
+                          fontSize: '0.75rem', color: '#374151',
+                          fontFamily: 'inherit',
+                        }}
+                        onMouseOver={e => { e.currentTarget.style.background = '#fef9c3'; e.currentTarget.style.borderColor = '#ca8a04' }}
+                        onMouseOut={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                      >
+                        ✏️
+                      </button>
+                    </td>
+                  )}
                   {columnOrder.map(col => (
                     <td
                       key={col}

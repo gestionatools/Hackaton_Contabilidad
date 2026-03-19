@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import DataTable from './DataTable'
 import CreateOperacionModal from './CreateOperacionModal'
+import EditOperacionModal from './EditOperacionModal'
 import TreeViewOperaciones from './TreeViewOperaciones'
 
 const APLICACIONES_TEXT_FIELDS = [
@@ -72,6 +73,7 @@ export default function TabView({ aplicaciones: initialAplicaciones, operaciones
   const [tab, setTab] = useState('operaciones')
   const [opViewMode, setOpViewMode] = useState('tabla') // 'tabla' | 'arbol'
   const [showModal, setShowModal] = useState(false)
+  const [editingOp, setEditingOp] = useState(null)
   const [operaciones, setOperaciones] = useState(initialOperaciones || [])
   const [aplicaciones, setAplicaciones] = useState(initialAplicaciones || [])
   const [refreshing, setRefreshing] = useState(false)
@@ -272,7 +274,7 @@ export default function TabView({ aplicaciones: initialAplicaciones, operaciones
           operaciones.length === 0
             ? <EmptyState message="Sin operaciones registradas." />
             : opViewMode === 'arbol'
-              ? <TreeViewOperaciones operaciones={operaciones} />
+              ? <TreeViewOperaciones operaciones={operaciones} onEdit={op => setEditingOp(op)} />
               : <DataTable
                   key="operaciones"
                   rows={operaciones}
@@ -281,6 +283,7 @@ export default function TabView({ aplicaciones: initialAplicaciones, operaciones
                   allColumns={OPERACIONES_COLUMNS}
                   columnLabels={OPERACIONES_LABELS}
                   tipoBadgeColors={TIPO_BADGE_COLORS}
+                  onEdit={op => setEditingOp(op)}
                 />
         )}
       </div>
@@ -289,6 +292,17 @@ export default function TabView({ aplicaciones: initialAplicaciones, operaciones
       {showModal && (
         <CreateOperacionModal
           onClose={() => setShowModal(false)}
+          aplicaciones={aplicaciones}
+          operaciones={operaciones}
+          onSaved={fetchData}
+        />
+      )}
+
+      {/* Edit Operacion Modal */}
+      {editingOp && (
+        <EditOperacionModal
+          operacion={editingOp}
+          onClose={() => setEditingOp(null)}
           aplicaciones={aplicaciones}
           operaciones={operaciones}
           onSaved={fetchData}
