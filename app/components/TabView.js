@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import DataTable from './DataTable'
 import CreateOperacionModal from './CreateOperacionModal'
+import TreeViewOperaciones from './TreeViewOperaciones'
 
 const APLICACIONES_TEXT_FIELDS = [
   { key: 'aplicacion_presup', label: 'Aplicación Presupuestaria' },
@@ -69,6 +70,7 @@ const TIPO_BADGE_COLORS = {
 
 export default function TabView({ aplicaciones: initialAplicaciones, operaciones: initialOperaciones }) {
   const [tab, setTab] = useState('operaciones')
+  const [opViewMode, setOpViewMode] = useState('tabla') // 'tabla' | 'arbol'
   const [showModal, setShowModal] = useState(false)
   const [operaciones, setOperaciones] = useState(initialOperaciones || [])
   const [aplicaciones, setAplicaciones] = useState(initialAplicaciones || [])
@@ -182,30 +184,65 @@ export default function TabView({ aplicaciones: initialAplicaciones, operaciones
           </button>
 
           {tab === 'operaciones' && (
-            <button
-              onClick={() => setShowModal(true)}
-              style={{
+            <>
+              {/* View mode toggle */}
+              <div style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 18px',
-                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                color: '#fff',
-                border: 'none',
+                background: '#f1f5f9',
                 borderRadius: '8px',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(37,99,235,0.35)',
-                fontFamily: 'inherit',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-              onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              <span style={{ fontSize: '1rem' }}>＋</span>
-              Nueva Operación
-            </button>
+                padding: '3px',
+                gap: '2px',
+              }}>
+                {[
+                  { key: 'tabla', icon: '☰', label: 'Tabla' },
+                  { key: 'arbol', icon: '🌳', label: 'Árbol' },
+                ].map(v => (
+                  <button
+                    key={v.key}
+                    onClick={() => setOpViewMode(v.key)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '4px',
+                      padding: '5px 12px',
+                      border: 'none', borderRadius: '6px',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      fontSize: '0.8rem', fontWeight: opViewMode === v.key ? 600 : 400,
+                      background: opViewMode === v.key ? '#fff' : 'transparent',
+                      color: opViewMode === v.key ? '#1d4ed8' : '#64748b',
+                      boxShadow: opViewMode === v.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <span>{v.icon}</span>
+                    <span>{v.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setShowModal(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 18px',
+                  background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(37,99,235,0.35)',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+              >
+                <span style={{ fontSize: '1rem' }}>＋</span>
+                Nueva Operación
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -234,15 +271,17 @@ export default function TabView({ aplicaciones: initialAplicaciones, operaciones
         {tab === 'operaciones' && (
           operaciones.length === 0
             ? <EmptyState message="Sin operaciones registradas." />
-            : <DataTable
-                key="operaciones"
-                rows={operaciones}
-                textFields={OPERACIONES_TEXT_FIELDS}
-                numFields={OPERACIONES_NUM_FIELDS}
-                allColumns={OPERACIONES_COLUMNS}
-                columnLabels={OPERACIONES_LABELS}
-                tipoBadgeColors={TIPO_BADGE_COLORS}
-              />
+            : opViewMode === 'arbol'
+              ? <TreeViewOperaciones operaciones={operaciones} />
+              : <DataTable
+                  key="operaciones"
+                  rows={operaciones}
+                  textFields={OPERACIONES_TEXT_FIELDS}
+                  numFields={OPERACIONES_NUM_FIELDS}
+                  allColumns={OPERACIONES_COLUMNS}
+                  columnLabels={OPERACIONES_LABELS}
+                  tipoBadgeColors={TIPO_BADGE_COLORS}
+                />
         )}
       </div>
 
