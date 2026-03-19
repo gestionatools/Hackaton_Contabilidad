@@ -1,100 +1,31 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-
-const styles = {
-  panel: {
-    border: '1px solid #ccc',
-    borderRadius: '6px',
-    marginBottom: '1rem',
-    overflow: 'hidden',
-  },
-  panelHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0.6rem 1rem',
-    background: '#f0f4f8',
-    cursor: 'pointer',
-    userSelect: 'none',
-    fontWeight: 600,
-    fontSize: '0.95rem',
-  },
-  panelBody: {
-    padding: '1rem',
-    borderTop: '1px solid #ccc',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-    gap: '0.75rem 1.25rem',
-  },
-  fieldGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-  },
-  label: {
-    fontSize: '0.75rem',
-    color: '#555',
-    fontWeight: 500,
-  },
-  input: {
-    padding: '4px 6px',
-    fontSize: '0.8rem',
-    border: '1px solid #bbb',
-    borderRadius: '4px',
-    width: '100%',
-    boxSizing: 'border-box',
-  },
-  rangeRow: {
-    display: 'flex',
-    gap: '4px',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: '0.78rem',
-    fontWeight: 700,
-    color: '#334',
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-    margin: '0 0 0.5rem',
-  },
-  divider: {
-    margin: '0.85rem 0',
-    border: 'none',
-    borderTop: '1px solid #e0e0e0',
-  },
-  resetBtn: {
-    marginTop: '0.85rem',
-    padding: '5px 14px',
-    fontSize: '0.8rem',
-    background: '#e8ecf0',
-    border: '1px solid #bbb',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  badge: {
-    fontSize: '0.72rem',
-    background: '#3b82f6',
-    color: '#fff',
-    borderRadius: '10px',
-    padding: '1px 7px',
-    marginLeft: '8px',
-    fontWeight: 600,
-  },
-  chevron: {
-    fontSize: '0.8rem',
-    transition: 'transform 0.2s',
-  },
-}
+import { useState, useMemo, useEffect } from 'react'
 
 // textFields: [{ key, label }]
 // numFields:  [{ key, label }]
 // allColumns: [string]
-export default function DataTable({ rows, textFields = [], numFields = [], allColumns = [] }) {
-  const [open, setOpen] = useState(false)
+// columnLabels: { [key]: string }
+// tipoBadgeColors: { [tipo]: { bg, color, border } }
+export default function DataTable({
+  rows,
+  textFields = [],
+  numFields = [],
+  allColumns = [],
+  columnLabels = {},
+  tipoBadgeColors = {},
+}) {
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [filters, setFilters] = useState({})
+  const [columnOrder, setColumnOrder] = useState(allColumns)
+  const [draggedCol, setDraggedCol] = useState(null)
+  const [dragOverCol, setDragOverCol] = useState(null)
+  const [sortCol, setSortCol] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
+
+  useEffect(() => {
+    setColumnOrder(allColumns)
+  }, [allColumns.join(',')])
 
   const setFilter = (key, value) =>
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -103,8 +34,17 @@ export default function DataTable({ rows, textFields = [], numFields = [], allCo
 
   const activeCount = Object.values(filters).filter(v => v !== '' && v !== undefined).length
 
+  const handleSort = (col) => {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortCol(col)
+      setSortDir('asc')
+    }
+  }
+
   const filtered = useMemo(() => {
-    return rows.filter(row => {
+    let result = rows.filter(row => {
       for (const { key } of textFields) {
         const val = filters[key]
         if (val && !String(row[key] ?? '').toLowerCase().includes(val.toLowerCase())) return false
@@ -118,35 +58,145 @@ export default function DataTable({ rows, textFields = [], numFields = [], allCo
       }
       return true
     })
-  }, [rows, filters, textFields, numFields])
+
+    if (sortCol) {
+      result = [...result].sort((a, b) => {
+        const av = a[sortCol] ?? ''
+        const bv = b[sortCol] ?? ''
+        const cmp = String(av).localeCompare(String(bv), 'es', { numeric: true })
+        return sortDir === 'asc' ? cmp : -cmp
+      })
+    }
+
+    return result
+  }, [rows, filters, textFields, numFields, sortCol, sortDir])
+
+  // Drag and drop handlers
+  const handleDragStart = (e, col) => {
+    setDraggedCol(col)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e, col) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (col !== draggedCol) setDragOverCol(col)
+  }
+
+  const handleDrop = (e, targetCol) => {
+    e.preventDefault()
+    if (!draggedCol || draggedCol === targetCol) {
+      setDraggedCol(null)
+      setDragOverCol(null)
+      return
+    }
+    setColumnOrder(prev => {
+      const next = [...prev]
+      const fromIdx = next.indexOf(draggedCol)
+      const toIdx = next.indexOf(targetCol)
+      next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, draggedCol)
+      return next
+    })
+    setDraggedCol(null)
+    setDragOverCol(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedCol(null)
+    setDragOverCol(null)
+  }
+
+  const colLabel = (col) => columnLabels[col] || col
 
   return (
     <>
-      {/* Filter panel */}
-      <div style={styles.panel}>
-        <div style={styles.panelHeader} onClick={() => setOpen(o => !o)} role="button" aria-expanded={open}>
-          <span>
-            Filtros
-            {activeCount > 0 && <span style={styles.badge}>{activeCount}</span>}
+      {/* Filter accordion */}
+      <div style={{
+        border: '1px solid #e2e8f0',
+        borderRadius: '10px',
+        marginBottom: '1rem',
+        overflow: 'hidden',
+      }}>
+        <button
+          onClick={() => setFiltersOpen(o => !o)}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.65rem 1rem',
+            background: filtersOpen ? '#f8fafc' : '#fff',
+            border: 'none',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            color: '#374151',
+            transition: 'background 0.15s',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>🔍</span>
+            <span>Filtros</span>
+            {activeCount > 0 && (
+              <span style={{
+                background: '#2563eb',
+                color: '#fff',
+                borderRadius: '20px',
+                padding: '1px 8px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+              }}>
+                {activeCount} activo{activeCount !== 1 ? 's' : ''}
+              </span>
+            )}
           </span>
-          <span style={{ ...styles.chevron, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
-        </div>
+          <span style={{
+            fontSize: '0.7rem',
+            color: '#94a3b8',
+            transform: filtersOpen ? 'rotate(180deg)' : 'rotate(0)',
+            transition: 'transform 0.2s',
+            display: 'inline-block',
+          }}>▼</span>
+        </button>
 
-        {open && (
-          <div style={styles.panelBody}>
+        {filtersOpen && (
+          <div style={{
+            padding: '1rem',
+            borderTop: '1px solid #e2e8f0',
+            background: '#fafbfc',
+          }}>
             {textFields.length > 0 && (
               <>
-                <p style={styles.sectionTitle}>Campos de texto (contiene)</p>
-                <div style={styles.grid}>
+                <p style={{
+                  fontSize: '0.7rem', fontWeight: 700, color: '#64748b',
+                  textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem',
+                }}>
+                  Texto (contiene)
+                </p>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                  gap: '0.6rem 1rem',
+                  marginBottom: '0.85rem',
+                }}>
                   {textFields.map(({ key, label }) => (
-                    <div key={key} style={styles.fieldGroup}>
-                      <label style={styles.label}>{label}</label>
+                    <div key={key}>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: '#64748b', marginBottom: '3px', fontWeight: 500 }}>
+                        {label}
+                      </label>
                       <input
                         type="text"
-                        style={styles.input}
                         placeholder="buscar..."
                         value={filters[key] ?? ''}
                         onChange={e => setFilter(key, e.target.value)}
+                        style={{
+                          width: '100%', padding: '5px 8px', fontSize: '0.8rem',
+                          border: '1px solid #d1d5db', borderRadius: '6px',
+                          fontFamily: 'inherit', outline: 'none',
+                          background: '#fff',
+                        }}
                       />
                     </div>
                   ))}
@@ -154,30 +204,49 @@ export default function DataTable({ rows, textFields = [], numFields = [], allCo
               </>
             )}
 
-            {textFields.length > 0 && numFields.length > 0 && <hr style={styles.divider} />}
-
             {numFields.length > 0 && (
               <>
-                <p style={styles.sectionTitle}>Campos numéricos (rango)</p>
-                <div style={styles.grid}>
+                {textFields.length > 0 && <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', marginBottom: '0.85rem' }} />}
+                <p style={{
+                  fontSize: '0.7rem', fontWeight: 700, color: '#64748b',
+                  textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem',
+                }}>
+                  Numérico (rango)
+                </p>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                  gap: '0.6rem 1rem',
+                  marginBottom: '0.85rem',
+                }}>
                   {numFields.map(({ key, label }) => (
-                    <div key={key} style={styles.fieldGroup}>
-                      <label style={styles.label}>{label}</label>
-                      <div style={styles.rangeRow}>
+                    <div key={key}>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: '#64748b', marginBottom: '3px', fontWeight: 500 }}>
+                        {label}
+                      </label>
+                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                         <input
                           type="number"
-                          style={styles.input}
                           placeholder="mín"
                           value={filters[`${key}_min`] ?? ''}
                           onChange={e => setFilter(`${key}_min`, e.target.value)}
+                          style={{
+                            flex: 1, padding: '5px 6px', fontSize: '0.8rem',
+                            border: '1px solid #d1d5db', borderRadius: '6px',
+                            fontFamily: 'inherit', outline: 'none', background: '#fff',
+                          }}
                         />
-                        <span style={{ fontSize: '0.75rem', color: '#888' }}>–</span>
+                        <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>–</span>
                         <input
                           type="number"
-                          style={styles.input}
                           placeholder="máx"
                           value={filters[`${key}_max`] ?? ''}
                           onChange={e => setFilter(`${key}_max`, e.target.value)}
+                          style={{
+                            flex: 1, padding: '5px 6px', fontSize: '0.8rem',
+                            border: '1px solid #d1d5db', borderRadius: '6px',
+                            fontFamily: 'inherit', outline: 'none', background: '#fff',
+                          }}
                         />
                       </div>
                     </div>
@@ -186,7 +255,15 @@ export default function DataTable({ rows, textFields = [], numFields = [], allCo
               </>
             )}
 
-            <button style={styles.resetBtn} onClick={resetFilters}>
+            <button
+              onClick={resetFilters}
+              style={{
+                padding: '5px 14px', fontSize: '0.78rem',
+                background: '#fff', border: '1px solid #d1d5db',
+                borderRadius: '6px', cursor: 'pointer',
+                fontFamily: 'inherit', color: '#374151',
+              }}
+            >
               Limpiar filtros
             </button>
           </div>
@@ -194,35 +271,100 @@ export default function DataTable({ rows, textFields = [], numFields = [], allCo
       </div>
 
       {/* Results count */}
-      <p style={{ fontSize: '0.82rem', color: '#555', margin: '0 0 0.5rem' }}>
-        {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
-        {filtered.length !== rows.length && ` de ${rows.length}`}
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+        <p style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <strong style={{ color: '#0f172a' }}>{filtered.length}</strong> resultado{filtered.length !== 1 ? 's' : ''}
+          {filtered.length !== rows.length && (
+            <span style={{ color: '#94a3b8' }}> de {rows.length}</span>
+          )}
+        </p>
+        <p style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+          ↔ Arrastra columnas para reordenar
+        </p>
+      </div>
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <p>Sin resultados para los filtros aplicados.</p>
+        <div style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8', fontSize: '0.875rem' }}>
+          Sin resultados para los filtros aplicados.
+        </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+        <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <table style={{ borderCollapse: 'collapse', fontSize: '0.82rem', width: '100%', minWidth: 'max-content' }}>
             <thead>
-              <tr>
-                {allColumns.map(col => (
+              <tr style={{ background: '#f8fafc' }}>
+                {columnOrder.map(col => (
                   <th
                     key={col}
-                    style={{ border: '1px solid #ccc', padding: '4px 8px', background: '#f0f0f0', whiteSpace: 'nowrap' }}
+                    draggable
+                    onDragStart={e => handleDragStart(e, col)}
+                    onDragOver={e => handleDragOver(e, col)}
+                    onDrop={e => handleDrop(e, col)}
+                    onDragEnd={handleDragEnd}
+                    onClick={() => handleSort(col)}
+                    style={{
+                      padding: '10px 14px',
+                      fontWeight: 600,
+                      fontSize: '0.75rem',
+                      color: '#374151',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      borderBottom: '2px solid #e2e8f0',
+                      borderRight: '1px solid #e2e8f0',
+                      textAlign: 'left',
+                      opacity: draggedCol === col ? 0.4 : 1,
+                      borderLeft: dragOverCol === col && dragOverCol !== draggedCol
+                        ? '3px solid #2563eb'
+                        : '3px solid transparent',
+                      transition: 'border-left 0.1s, opacity 0.1s',
+                      background: sortCol === col ? '#eff6ff' : undefined,
+                    }}
                   >
-                    {col}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ cursor: 'grab', color: '#cbd5e1', fontSize: '0.7rem' }}>⠿</span>
+                      {colLabel(col)}
+                      {sortCol === col && (
+                        <span style={{ color: '#2563eb', fontSize: '0.65rem' }}>
+                          {sortDir === 'asc' ? '▲' : '▼'}
+                        </span>
+                      )}
+                    </span>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map((row, i) => (
-                <tr key={row.id ?? i}>
-                  {allColumns.map(col => (
-                    <td key={col} style={{ border: '1px solid #ccc', padding: '4px 8px', whiteSpace: 'nowrap' }}>
-                      {row[col] ?? ''}
+                <tr
+                  key={row.id ?? i}
+                  style={{
+                    background: i % 2 === 0 ? '#fff' : '#fafbfc',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseOver={e => e.currentTarget.style.background = '#eff6ff'}
+                  onMouseOut={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}
+                >
+                  {columnOrder.map(col => (
+                    <td
+                      key={col}
+                      style={{
+                        padding: '9px 14px',
+                        borderBottom: '1px solid #f1f5f9',
+                        borderRight: '1px solid #f1f5f9',
+                        whiteSpace: 'nowrap',
+                        color: '#374151',
+                        maxWidth: '260px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {col === 'operacion_tipo' && row[col] && tipoBadgeColors[row[col]]
+                        ? <TipoBadge tipo={row[col]} colors={tipoBadgeColors[row[col]]} />
+                        : formatCell(col, row[col])
+                      }
                     </td>
                   ))}
                 </tr>
@@ -233,4 +375,44 @@ export default function DataTable({ rows, textFields = [], numFields = [], allCo
       )}
     </>
   )
+}
+
+function TipoBadge({ tipo, colors }) {
+  return (
+    <span style={{
+      display: 'inline-block',
+      padding: '2px 10px',
+      borderRadius: '20px',
+      fontSize: '0.72rem',
+      fontWeight: 700,
+      letterSpacing: '0.04em',
+      background: colors.bg,
+      color: colors.color,
+      border: `1px solid ${colors.border}`,
+    }}>
+      {tipo}
+    </span>
+  )
+}
+
+function formatCell(col, value) {
+  if (value === null || value === undefined || value === '') return (
+    <span style={{ color: '#cbd5e1' }}>—</span>
+  )
+  if (col.includes('fecha') || col.includes('_at')) {
+    try {
+      const d = new Date(value)
+      if (!isNaN(d)) return d.toLocaleString('es-ES', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+      })
+    } catch {}
+  }
+  if (col.includes('importe') || col.includes('Importe')) {
+    const n = Number(value)
+    if (!isNaN(n)) return new Intl.NumberFormat('es-ES', {
+      style: 'currency', currency: 'EUR', minimumFractionDigits: 2,
+    }).format(n)
+  }
+  return String(value)
 }
