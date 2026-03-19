@@ -9,7 +9,7 @@ async function getData() {
 
   const [{ data: aplicaciones, error: err1 }, { data: operaciones, error: err2 }] = await Promise.all([
     supabase.from('HACK_CONTA_Aplicaciones').select('*'),
-    supabase.from('HACK_Conta_Operaciones').select('*'),
+    supabase.from('HACK_CONTA_Operaciones').select('*'),
   ])
 
   if (err1) throw new Error(`Aplicaciones: ${err1.message}`)

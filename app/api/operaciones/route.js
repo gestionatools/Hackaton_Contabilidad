@@ -42,7 +42,7 @@ export async function POST(request) {
 
   // Determine next operacion_ID by finding the max existing number
   const { data: ops, error: opsError } = await supabase
-    .from('HACK_Conta_Operaciones')
+    .from('HACK_CONTA_Operaciones')
     .select('operacion_ID')
 
   if (opsError) {
@@ -92,7 +92,7 @@ export async function POST(request) {
   }
 
   const { error: insertError } = await supabase
-    .from('HACK_Conta_Operaciones')
+    .from('HACK_CONTA_Operaciones')
     .insert(insertPayload)
 
   if (insertError) {
