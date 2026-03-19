@@ -2,39 +2,6 @@
 
 import { useState, useMemo } from 'react'
 
-const TEXT_FIELDS = [
-  { key: 'referencia_catastral', label: 'Referencia Catastral' },
-  { key: 'municipio', label: 'Municipio' },
-  { key: 'clase_suelo', label: 'Clase de Suelo' },
-  { key: 'categoria_suelo', label: 'Categoría de Suelo' },
-  { key: 'ambito_planeamiento', label: 'Ámbito Planeamiento' },
-  { key: 'ambito_codigo', label: 'Ámbito Código' },
-  { key: 'unidad_ejecucion', label: 'Unidad de Ejecución' },
-  { key: 'zonificacion', label: 'Zonificación' },
-  { key: 'subzonificacion', label: 'Subzonificación' },
-  { key: 'ordenanza', label: 'Ordenanza' },
-  { key: 'instrumento_planeamiento', label: 'Instrumento Planeamiento' },
-  { key: 'licencia_urbanistica', label: 'Licencia Urbanística' },
-]
-
-const NUM_FIELDS = [
-  { key: 'ID', label: 'ID' },
-  { key: 'edificabilidad_m2m2', label: 'Edificabilidad (m²/m²)' },
-  { key: 'ocupacion_maxima_pct', label: 'Ocupación Máx. (%)' },
-  { key: 'altura_max_plantas', label: 'Altura Máx. Plantas' },
-  { key: 'superficie_parcela_m2', label: 'Superficie Parcela (m²)' },
-  { key: 'longitud', label: 'Longitud' },
-  { key: 'latitud', label: 'Latitud' },
-]
-
-const ALL_COLUMNS = [
-  'ID', 'referencia_catastral', 'municipio', 'clase_suelo', 'categoria_suelo',
-  'ambito_planeamiento', 'ambito_codigo', 'unidad_ejecucion', 'zonificacion',
-  'subzonificacion', 'ordenanza', 'instrumento_planeamiento',
-  'edificabilidad_m2m2', 'ocupacion_maxima_pct', 'altura_max_plantas',
-  'superficie_parcela_m2', 'licencia_urbanistica', 'longitud', 'latitud', 'doc_url',
-]
-
 const styles = {
   panel: {
     border: '1px solid #ccc',
@@ -122,7 +89,10 @@ const styles = {
   },
 }
 
-export default function DataTable({ rows }) {
+// textFields: [{ key, label }]
+// numFields:  [{ key, label }]
+// allColumns: [string]
+export default function DataTable({ rows, textFields = [], numFields = [], allColumns = [] }) {
   const [open, setOpen] = useState(false)
   const [filters, setFilters] = useState({})
 
@@ -135,11 +105,11 @@ export default function DataTable({ rows }) {
 
   const filtered = useMemo(() => {
     return rows.filter(row => {
-      for (const { key } of TEXT_FIELDS) {
+      for (const { key } of textFields) {
         const val = filters[key]
         if (val && !String(row[key] ?? '').toLowerCase().includes(val.toLowerCase())) return false
       }
-      for (const { key } of NUM_FIELDS) {
+      for (const { key } of numFields) {
         const min = filters[`${key}_min`]
         const max = filters[`${key}_max`]
         const v = Number(row[key])
@@ -148,7 +118,7 @@ export default function DataTable({ rows }) {
       }
       return true
     })
-  }, [rows, filters])
+  }, [rows, filters, textFields, numFields])
 
   return (
     <>
@@ -164,51 +134,57 @@ export default function DataTable({ rows }) {
 
         {open && (
           <div style={styles.panelBody}>
-            {/* Text filters */}
-            <p style={styles.sectionTitle}>Campos de texto (contiene)</p>
-            <div style={styles.grid}>
-              {TEXT_FIELDS.map(({ key, label }) => (
-                <div key={key} style={styles.fieldGroup}>
-                  <label style={styles.label}>{label}</label>
-                  <input
-                    type="text"
-                    style={styles.input}
-                    placeholder="buscar..."
-                    value={filters[key] ?? ''}
-                    onChange={e => setFilter(key, e.target.value)}
-                  />
+            {textFields.length > 0 && (
+              <>
+                <p style={styles.sectionTitle}>Campos de texto (contiene)</p>
+                <div style={styles.grid}>
+                  {textFields.map(({ key, label }) => (
+                    <div key={key} style={styles.fieldGroup}>
+                      <label style={styles.label}>{label}</label>
+                      <input
+                        type="text"
+                        style={styles.input}
+                        placeholder="buscar..."
+                        value={filters[key] ?? ''}
+                        onChange={e => setFilter(key, e.target.value)}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
 
-            <hr style={styles.divider} />
+            {textFields.length > 0 && numFields.length > 0 && <hr style={styles.divider} />}
 
-            {/* Numeric range filters */}
-            <p style={styles.sectionTitle}>Campos numéricos (rango)</p>
-            <div style={styles.grid}>
-              {NUM_FIELDS.map(({ key, label }) => (
-                <div key={key} style={styles.fieldGroup}>
-                  <label style={styles.label}>{label}</label>
-                  <div style={styles.rangeRow}>
-                    <input
-                      type="number"
-                      style={styles.input}
-                      placeholder="mín"
-                      value={filters[`${key}_min`] ?? ''}
-                      onChange={e => setFilter(`${key}_min`, e.target.value)}
-                    />
-                    <span style={{ fontSize: '0.75rem', color: '#888' }}>–</span>
-                    <input
-                      type="number"
-                      style={styles.input}
-                      placeholder="máx"
-                      value={filters[`${key}_max`] ?? ''}
-                      onChange={e => setFilter(`${key}_max`, e.target.value)}
-                    />
-                  </div>
+            {numFields.length > 0 && (
+              <>
+                <p style={styles.sectionTitle}>Campos numéricos (rango)</p>
+                <div style={styles.grid}>
+                  {numFields.map(({ key, label }) => (
+                    <div key={key} style={styles.fieldGroup}>
+                      <label style={styles.label}>{label}</label>
+                      <div style={styles.rangeRow}>
+                        <input
+                          type="number"
+                          style={styles.input}
+                          placeholder="mín"
+                          value={filters[`${key}_min`] ?? ''}
+                          onChange={e => setFilter(`${key}_min`, e.target.value)}
+                        />
+                        <span style={{ fontSize: '0.75rem', color: '#888' }}>–</span>
+                        <input
+                          type="number"
+                          style={styles.input}
+                          placeholder="máx"
+                          value={filters[`${key}_max`] ?? ''}
+                          onChange={e => setFilter(`${key}_max`, e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
 
             <button style={styles.resetBtn} onClick={resetFilters}>
               Limpiar filtros
@@ -231,7 +207,7 @@ export default function DataTable({ rows }) {
           <table style={{ borderCollapse: 'collapse', fontSize: '0.8rem' }}>
             <thead>
               <tr>
-                {ALL_COLUMNS.map(col => (
+                {allColumns.map(col => (
                   <th
                     key={col}
                     style={{ border: '1px solid #ccc', padding: '4px 8px', background: '#f0f0f0', whiteSpace: 'nowrap' }}
@@ -242,13 +218,11 @@ export default function DataTable({ rows }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(row => (
-                <tr key={row.ID}>
-                  {ALL_COLUMNS.map(col => (
+              {filtered.map((row, i) => (
+                <tr key={row.id ?? i}>
+                  {allColumns.map(col => (
                     <td key={col} style={{ border: '1px solid #ccc', padding: '4px 8px', whiteSpace: 'nowrap' }}>
-                      {col === 'doc_url' && row[col]
-                        ? <a href={row[col]} target="_blank" rel="noreferrer">ver</a>
-                        : row[col] ?? ''}
+                      {row[col] ?? ''}
                     </td>
                   ))}
                 </tr>
