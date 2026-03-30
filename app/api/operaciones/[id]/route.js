@@ -27,6 +27,7 @@ export async function PUT(request, { params }) {
     operacion_fecha,
     operacion_aplicacion,
     NIF_tercero,
+    expediente_codigo,
   } = body
 
   if (!operacion_tipo) {
@@ -51,6 +52,7 @@ export async function PUT(request, { params }) {
     operacion_fecha: parsedFecha,
     operacion_aplicacion: operacion_aplicacion || null,
     NIF_tercero: NIF_tercero?.trim() || null,
+    expediente_codigo: expediente_codigo?.trim() || null,
     operacion_importeretenido: null,
     operacion_importegastado: null,
   }

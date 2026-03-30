@@ -43,6 +43,7 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
     operacion_fecha: '',
     operacion_aplicacion: '',
     NIF_tercero: '',
+    expediente_codigo: '',
   })
 
   const [arbolInherited, setArbolInherited] = useState({
@@ -476,6 +477,18 @@ export default function CreateOperacionModal({ onClose, aplicaciones, operacione
                   ...inputStyle,
                   ...(form.arbol_linked && arbolInherited.nif_tercero != null ? { background: '#eff6ff', borderColor: '#bfdbfe' } : {}),
                 }}
+              />
+            </div>
+
+            {/* Expediente Código */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Expediente relacionado</label>
+              <input
+                type="text"
+                placeholder="Código de expediente..."
+                value={form.expediente_codigo}
+                onChange={e => set('expediente_codigo', e.target.value)}
+                style={inputStyle}
               />
             </div>
 
