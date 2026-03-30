@@ -52,6 +52,7 @@ export default function EditOperacionModal({ operacion, onClose, aplicaciones, o
     operacion_fecha: toDatetimeLocal(operacion.operacion_fecha),
     operacion_aplicacion: operacion.operacion_aplicacion || '',
     NIF_tercero: operacion.NIF_tercero || '',
+    expediente_codigo: operacion.expediente_codigo || '',
   })
 
   const [showArbolPicker, setShowArbolPicker] = useState(false)
@@ -398,6 +399,18 @@ export default function EditOperacionModal({ operacion, onClose, aplicaciones, o
                 placeholder="Ej: 12345678A"
                 value={form.NIF_tercero}
                 onChange={e => set('NIF_tercero', e.target.value)}
+                style={{ ...inputStyle }}
+              />
+            </div>
+
+            {/* Expediente Código */}
+            <div style={fieldGroupStyle}>
+              <label style={labelStyle}>Expediente relacionado</label>
+              <input
+                type="text"
+                placeholder="Código de expediente..."
+                value={form.expediente_codigo}
+                onChange={e => set('expediente_codigo', e.target.value)}
                 style={{ ...inputStyle }}
               />
             </div>

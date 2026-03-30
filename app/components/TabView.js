@@ -34,6 +34,7 @@ const OPERACIONES_TEXT_FIELDS = [
   { key: 'operacion_descripcion', label: 'Descripción' },
   { key: 'operacion_unidadgestora', label: 'Unidad Gestora' },
   { key: 'operacion_aplicacion', label: 'Aplicación' },
+  { key: 'expediente_codigo', label: 'Expediente relacionado' },
 ]
 
 const OPERACIONES_NUM_FIELDS = [
@@ -45,6 +46,7 @@ const OPERACIONES_COLUMNS = [
   'operacion_tipo', 'operacion_ID', 'arbol_ID', 'RC_Numero',
   'operacion_importeretenido', 'operacion_importegastado',
   'operacion_descripcion', 'operacion_unidadgestora', 'operacion_fecha', 'operacion_aplicacion',
+  'expediente_codigo',
 ]
 
 const OPERACIONES_LABELS = {
@@ -58,6 +60,7 @@ const OPERACIONES_LABELS = {
   operacion_unidadgestora: 'Unidad Gestora',
   operacion_fecha: 'Fecha',
   operacion_aplicacion: 'Aplicación',
+  expediente_codigo: 'Expediente relacionado',
 }
 
 const TIPO_BADGE_COLORS = {
