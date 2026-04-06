@@ -31,15 +31,10 @@ const fieldGroupStyle = {
   flexDirection: 'column',
 }
 
-function toDatetimeLocal(isoStr) {
+function toDateOnly(isoStr) {
   if (!isoStr) return ''
-  try {
-    const d = new Date(isoStr)
-    const pad = n => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-  } catch {
-    return ''
-  }
+  // Extract YYYY-MM-DD from any date/datetime string
+  return String(isoStr).slice(0, 10)
 }
 
 export default function ValidarOperacionModal({ operacion, onClose, aplicaciones, operaciones, onSaved }) {
@@ -51,7 +46,7 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
     operacion_importegastado: operacion.operacion_importegastado ?? '',
     operacion_descripcion: operacion.operacion_descripcion || '',
     operacion_unidadgestora: operacion.operacion_unidadgestora || '',
-    operacion_fecha: toDatetimeLocal(operacion.operacion_fecha),
+    operacion_fecha: toDateOnly(operacion.operacion_fecha),
     operacion_aplicacion: operacion.operacion_aplicacion || '',
     NIF_tercero: operacion.NIF_tercero || '',
     expediente_codigo: operacion.expediente_codigo || '',
@@ -142,7 +137,24 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
-    if (!form.operacion_tipo) return setError('El tipo de operación es obligatorio.')
+
+    // Validaciones de campos requeridos
+    if (!form.operacion_tipo) {
+      return setError('El tipo de operación es obligatorio.')
+    }
+    if (isOADO) {
+      const impGast = parseFloat(form.operacion_importegastado)
+      if (isNaN(impGast)) {
+        return setError('El importe gastado es obligatorio para operaciones de tipo O o ADO.')
+      }
+    }
+    if (isRC) {
+      const impRet = parseFloat(form.operacion_importeretenido)
+      if (isNaN(impRet)) {
+        return setError('El importe retenido es obligatorio para operaciones de tipo RC.')
+      }
+    }
+
     setSaving(true)
     try {
       const res = await fetch(`/api/operaciones/${operacion.operacion_ID}`, {
@@ -239,7 +251,7 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
           gap: '8px',
         }}>
           <span>⚠️</span>
-          Esta operación no tiene Árbol ID asignado. Complete los campos faltantes y haga clic en <strong>Validar Operación</strong>.
+          Revise los datos y complete los campos faltantes. Si no vincula un árbol, se asignará uno automáticamente. Pulse <strong>Validar Operación</strong> para guardar.
         </div>
 
         {/* Form */}
@@ -268,7 +280,7 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
               <div style={fieldGroupStyle}>
                 <label style={labelStyle}>
                   RC Número
-                  <PendingBadge />
+                  <AutoBadge />
                 </label>
                 <div style={{
                   ...inputStyle,
@@ -284,11 +296,11 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
               </div>
             )}
 
-            {/* Árbol ID — campo pendiente principal */}
+            {/* Árbol ID */}
             <div style={fieldGroupStyle}>
               <label style={labelStyle}>
                 ID Árbol
-                <PendingBadge />
+                {!form.arbol_linked && <AutoBadge label="auto = ID operación" />}
               </label>
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', position: 'relative' }}>
                 <div style={{
@@ -303,7 +315,7 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
                 }}>
                   {form.arbol_linked
                     ? <><span>🔗</span>{form.arbol_ID}</>
-                    : <><span style={{ fontSize: '0.75rem' }}>⚡</span>{operacion.operacion_ID} (auto)</>
+                    : <><span style={{ fontSize: '0.75rem' }}>⚡</span>{operacion.operacion_ID}</>
                   }
                 </div>
                 {form.arbol_linked && (
@@ -410,6 +422,7 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
               <div style={fieldGroupStyle}>
                 <label style={labelStyle}>
                   Importe Retenido
+                  {isRC && <Required />}
                   {form.arbol_linked && arbolInherited.importeretenido != null && <InheritedBadge />}
                 </label>
                 <input
@@ -441,12 +454,11 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
               </div>
             )}
 
-            {/* Fecha */}
+            {/* Fecha — solo fecha, sin hora */}
             <div style={fieldGroupStyle}>
               <label style={labelStyle}>Fecha operación</label>
               <input
-                type="datetime-local"
-                step="1"
+                type="date"
                 value={form.operacion_fecha}
                 onChange={e => set('operacion_fecha', e.target.value)}
                 style={inputStyle}
@@ -582,14 +594,14 @@ function Required() {
   return <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>
 }
 
-function PendingBadge() {
+function AutoBadge({ label = 'auto' }) {
   return (
     <span style={{
       marginLeft: 6, fontSize: '0.68rem', color: '#92400e',
       background: '#fef3c7', padding: '1px 6px', borderRadius: '4px',
       border: '1px solid #fde68a',
     }}>
-      pendiente
+      ⚡ {label}
     </span>
   )
 }

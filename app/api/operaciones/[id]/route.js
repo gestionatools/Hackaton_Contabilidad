@@ -57,11 +57,11 @@ export async function PATCH(request, { params }) {
     generatedRC_Numero = `RC-${currentYear}-${String(maxRCNum + 1).padStart(5, '0')}`
   }
 
-  // Parse date to ISO string for timestamptz
+  // Parse date — store only the date part (YYYY-MM-DD), no time
   let parsedFecha = null
-  if (operacion_fecha && operacion_fecha.trim() !== '') {
-    const d = new Date(operacion_fecha)
-    if (!isNaN(d.getTime())) parsedFecha = d.toISOString()
+  if (operacion_fecha && String(operacion_fecha).trim() !== '') {
+    const match = String(operacion_fecha).match(/^(\d{4}-\d{2}-\d{2})/)
+    if (match) parsedFecha = match[1]
   }
 
   const updatePayload = {
