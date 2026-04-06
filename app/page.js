@@ -4,7 +4,7 @@ import TabView from './components/TabView'
 async function getData() {
   const supabase = createClient(
     process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY
   )
 
   const [{ data: aplicaciones, error: err1 }, { data: operaciones, error: err2 }] = await Promise.all([
