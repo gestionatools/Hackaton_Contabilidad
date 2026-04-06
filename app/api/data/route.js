@@ -1,11 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-export async function GET() {
-  const supabase = createClient(
+// Use service role key for server-side routes (bypasses RLS).
+// Falls back to anon key if service role key is not configured.
+function getSupabase() {
+  return createClient(
     process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY
   )
+}
+
+export async function GET() {
+  const supabase = getSupabase()
 
   const [{ data: aplicaciones, error: err1 }, { data: operaciones, error: err2 }] = await Promise.all([
     supabase.from('HACK_CONTA_Aplicaciones').select('*'),

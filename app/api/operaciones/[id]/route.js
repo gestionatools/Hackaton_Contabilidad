@@ -1,13 +1,19 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
+// Use service role key for server-side routes (bypasses RLS).
+// Falls back to anon key if service role key is not configured.
+function getSupabase() {
+  return createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY
+  )
+}
+
 // PATCH /api/operaciones/[id] — valida una operación pendiente:
 // asigna arbol_ID (auto o vinculado) y genera RC_Numero si el tipo es RC.
 export async function PATCH(request, { params }) {
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  )
+  const supabase = getSupabase()
 
   const { id } = await params
 
@@ -99,13 +105,21 @@ export async function PATCH(request, { params }) {
     updatePayload.operacion_importegastado = isNaN(impGast) ? null : impGast
   }
 
-  const { error: patchError } = await supabase
+  const { data: updatedRows, error: patchError } = await supabase
     .from('HACK_CONTA_Operaciones')
     .update(updatePayload)
     .eq('operacion_ID', id)
+    .select()
 
   if (patchError) {
     return NextResponse.json({ error: `Error al validar operación: ${patchError.message}` }, { status: 500 })
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    return NextResponse.json(
+      { error: 'No se pudo actualizar la operación. Verifique que el registro existe y que tiene permisos de escritura en Supabase (RLS).' },
+      { status: 404 }
+    )
   }
 
   if (operacion_aplicacion) {
@@ -119,10 +133,7 @@ export async function PATCH(request, { params }) {
 }
 
 export async function PUT(request, { params }) {
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  )
+  const supabase = getSupabase()
 
   const { id } = await params
 
@@ -184,13 +195,21 @@ export async function PUT(request, { params }) {
     updatePayload.operacion_importegastado = isNaN(impGast) ? null : impGast
   }
 
-  const { error: updateError } = await supabase
+  const { data: updatedRows, error: updateError } = await supabase
     .from('HACK_CONTA_Operaciones')
     .update(updatePayload)
     .eq('operacion_ID', id)
+    .select()
 
   if (updateError) {
     return NextResponse.json({ error: `Error al actualizar operación: ${updateError.message}` }, { status: 500 })
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    return NextResponse.json(
+      { error: 'No se pudo actualizar la operación. Verifique que el registro existe y que tiene permisos de escritura en Supabase (RLS).' },
+      { status: 404 }
+    )
   }
 
   // Update fecha_ultimocambio on matching Aplicacion row
