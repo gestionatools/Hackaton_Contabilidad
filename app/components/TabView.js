@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import DataTable from './DataTable'
 import CreateOperacionModal from './CreateOperacionModal'
 import EditOperacionModal from './EditOperacionModal'
 import TreeViewOperaciones from './TreeViewOperaciones'
+import PendingOperacionesView from './PendingOperacionesView'
 
 const APLICACIONES_TEXT_FIELDS = [
   { key: 'aplicacion_presup', label: 'Aplicación Presupuestaria' },
@@ -81,6 +82,12 @@ export default function TabView({ aplicaciones: initialAplicaciones, operaciones
   const [aplicaciones, setAplicaciones] = useState(initialAplicaciones || [])
   const [refreshing, setRefreshing] = useState(false)
 
+  // Pending operations: those with no arbol_ID assigned yet
+  const pendingOperaciones = useMemo(
+    () => (operaciones || []).filter(op => !op.arbol_ID),
+    [operaciones]
+  )
+
   const fetchData = useCallback(async () => {
     setRefreshing(true)
     try {
@@ -98,6 +105,7 @@ export default function TabView({ aplicaciones: initialAplicaciones, operaciones
   const tabs = [
     { key: 'operaciones', label: 'Operaciones', count: operaciones?.length ?? 0, icon: '📋' },
     { key: 'aplicaciones', label: 'Aplicaciones', count: aplicaciones?.length ?? 0, icon: '📁' },
+    { key: 'pendientes', label: 'Pendientes', count: pendingOperaciones.length, icon: '⚠️', alert: pendingOperaciones.length > 0 },
   ]
 
   return (
@@ -121,40 +129,47 @@ export default function TabView({ aplicaciones: initialAplicaciones, operaciones
           boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
           border: '1px solid #e2e8f0',
         }}>
-          {tabs.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: tab === t.key ? 600 : 400,
-                background: tab === t.key ? '#2563eb' : 'transparent',
-                color: tab === t.key ? '#fff' : '#64748b',
-                transition: 'all 0.15s ease',
-                fontFamily: 'inherit',
-              }}
-            >
-              <span>{t.icon}</span>
-              <span>{t.label}</span>
-              <span style={{
-                fontSize: '0.7rem',
-                background: tab === t.key ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
-                color: tab === t.key ? '#fff' : '#94a3b8',
-                borderRadius: '20px',
-                padding: '1px 7px',
-                fontWeight: 600,
-              }}>
-                {t.count}
-              </span>
-            </button>
-          ))}
+          {tabs.map(t => {
+            const isActive = tab === t.key
+            const isAlert = t.alert && !isActive
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: isActive ? 600 : 400,
+                  background: isActive
+                    ? (t.key === 'pendientes' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#2563eb')
+                    : (isAlert ? '#fffbeb' : 'transparent'),
+                  color: isActive ? '#fff' : (isAlert ? '#92400e' : '#64748b'),
+                  transition: 'all 0.15s ease',
+                  fontFamily: 'inherit',
+                  outline: isAlert ? '1px solid #fde68a' : 'none',
+                }}
+              >
+                <span>{t.icon}</span>
+                <span>{t.label}</span>
+                <span style={{
+                  fontSize: '0.7rem',
+                  background: isActive ? 'rgba(255,255,255,0.25)' : (isAlert ? '#fde68a' : '#f1f5f9'),
+                  color: isActive ? '#fff' : (isAlert ? '#92400e' : '#94a3b8'),
+                  borderRadius: '20px',
+                  padding: '1px 7px',
+                  fontWeight: 600,
+                }}>
+                  {t.count}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         {/* Action buttons */}
@@ -288,6 +303,15 @@ export default function TabView({ aplicaciones: initialAplicaciones, operaciones
                   tipoBadgeColors={TIPO_BADGE_COLORS}
                   onEdit={op => setEditingOp(op)}
                 />
+        )}
+
+        {tab === 'pendientes' && (
+          <PendingOperacionesView
+            pendingOperaciones={pendingOperaciones}
+            aplicaciones={aplicaciones}
+            operaciones={operaciones}
+            onSaved={fetchData}
+          />
         )}
       </div>
 
