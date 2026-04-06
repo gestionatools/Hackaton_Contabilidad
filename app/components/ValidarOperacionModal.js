@@ -31,12 +31,12 @@ const fieldGroupStyle = {
   flexDirection: 'column',
 }
 
-function toDatetimeLocal(isoStr) {
+function toDateOnly(isoStr) {
   if (!isoStr) return ''
   try {
     const d = new Date(isoStr)
     const pad = n => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
   } catch {
     return ''
   }
@@ -51,7 +51,7 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
     operacion_importegastado: operacion.operacion_importegastado ?? '',
     operacion_descripcion: operacion.operacion_descripcion || '',
     operacion_unidadgestora: operacion.operacion_unidadgestora || '',
-    operacion_fecha: toDatetimeLocal(operacion.operacion_fecha),
+    operacion_fecha: toDateOnly(operacion.operacion_fecha),
     operacion_aplicacion: operacion.operacion_aplicacion || '',
     NIF_tercero: operacion.NIF_tercero || '',
     expediente_codigo: operacion.expediente_codigo || '',
@@ -143,6 +143,11 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
     e.preventDefault()
     setError(null)
     if (!form.operacion_tipo) return setError('El tipo de operación es obligatorio.')
+    if (!form.operacion_aplicacion) return setError('La aplicación presupuestaria es obligatoria.')
+    if (!form.operacion_fecha) return setError('La fecha de la operación es obligatoria.')
+    if (isOADO && (form.operacion_importegastado === '' || form.operacion_importegastado === null)) {
+      return setError('El importe gastado es obligatorio para operaciones de tipo O o ADO.')
+    }
     setSaving(true)
     try {
       const res = await fetch(`/api/operaciones/${operacion.operacion_ID}`, {
@@ -445,8 +450,7 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
             <div style={fieldGroupStyle}>
               <label style={labelStyle}>Fecha operación</label>
               <input
-                type="datetime-local"
-                step="1"
+                type="date"
                 value={form.operacion_fecha}
                 onChange={e => set('operacion_fecha', e.target.value)}
                 style={inputStyle}
