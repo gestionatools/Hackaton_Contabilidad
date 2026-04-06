@@ -1,0 +1,33 @@
+-- Fix RLS policies to allow full access for the application
+-- Run this in your Supabase SQL editor if you see "permisos de escritura (RLS)" errors.
+--
+-- Root cause: when SUPABASE_SERVICE_ROLE_KEY is not set, the API falls back to
+-- SUPABASE_ANON_KEY, which is subject to RLS. By default Supabase tables with
+-- RLS enabled only allow SELECT for the anon role, blocking INSERT/UPDATE/DELETE.
+--
+-- Option A (recommended for development/hackathon): disable RLS on these tables.
+ALTER TABLE "HACK_CONTA_Operaciones"  DISABLE ROW LEVEL SECURITY;
+ALTER TABLE "HACK_CONTA_Aplicaciones" DISABLE ROW LEVEL SECURITY;
+
+-- Option B: keep RLS enabled but add permissive policies for the anon role.
+-- Uncomment the lines below and comment out Option A above if you prefer this approach.
+--
+-- ALTER TABLE "HACK_CONTA_Operaciones"  ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE "HACK_CONTA_Aplicaciones" ENABLE ROW LEVEL SECURITY;
+--
+-- DROP POLICY IF EXISTS "anon_full_access_operaciones"  ON "HACK_CONTA_Operaciones";
+-- DROP POLICY IF EXISTS "anon_full_access_aplicaciones" ON "HACK_CONTA_Aplicaciones";
+--
+-- CREATE POLICY "anon_full_access_operaciones"
+--   ON "HACK_CONTA_Operaciones"
+--   FOR ALL
+--   TO anon
+--   USING (true)
+--   WITH CHECK (true);
+--
+-- CREATE POLICY "anon_full_access_aplicaciones"
+--   ON "HACK_CONTA_Aplicaciones"
+--   FOR ALL
+--   TO anon
+--   USING (true)
+--   WITH CHECK (true);
