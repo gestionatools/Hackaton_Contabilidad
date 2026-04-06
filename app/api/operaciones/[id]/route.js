@@ -116,9 +116,29 @@ export async function PATCH(request, { params }) {
   }
 
   if (!updatedRows || updatedRows.length === 0) {
+    // Distinguish between "record not found" and "RLS blocking the update"
+    const { data: existingRow } = await supabase
+      .from('HACK_CONTA_Operaciones')
+      .select('operacion_ID')
+      .eq('operacion_ID', id)
+      .maybeSingle()
+
+    if (!existingRow) {
+      return NextResponse.json(
+        { error: `Operación con ID '${id}' no encontrada en la base de datos.` },
+        { status: 404 }
+      )
+    }
+
+    const usingServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY
     return NextResponse.json(
-      { error: 'No se pudo actualizar la operación. Verifique que el registro existe y que tiene permisos de escritura en Supabase (RLS).' },
-      { status: 404 }
+      {
+        error: 'No se pudo actualizar la operación. ' +
+          (usingServiceRole
+            ? 'Verifique las políticas RLS en Supabase (ejecute migrations/fix_rls_policies.sql).'
+            : 'SUPABASE_SERVICE_ROLE_KEY no está configurada. Configure esta variable de entorno o ejecute migrations/fix_rls_policies.sql en Supabase.'),
+      },
+      { status: 403 }
     )
   }
 
@@ -206,9 +226,28 @@ export async function PUT(request, { params }) {
   }
 
   if (!updatedRows || updatedRows.length === 0) {
+    const { data: existingRow } = await supabase
+      .from('HACK_CONTA_Operaciones')
+      .select('operacion_ID')
+      .eq('operacion_ID', id)
+      .maybeSingle()
+
+    if (!existingRow) {
+      return NextResponse.json(
+        { error: `Operación con ID '${id}' no encontrada en la base de datos.` },
+        { status: 404 }
+      )
+    }
+
+    const usingServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY
     return NextResponse.json(
-      { error: 'No se pudo actualizar la operación. Verifique que el registro existe y que tiene permisos de escritura en Supabase (RLS).' },
-      { status: 404 }
+      {
+        error: 'No se pudo actualizar la operación. ' +
+          (usingServiceRole
+            ? 'Verifique las políticas RLS en Supabase (ejecute migrations/fix_rls_policies.sql).'
+            : 'SUPABASE_SERVICE_ROLE_KEY no está configurada. Configure esta variable de entorno o ejecute migrations/fix_rls_policies.sql en Supabase.'),
+      },
+      { status: 403 }
     )
   }
 
