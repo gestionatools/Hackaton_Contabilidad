@@ -150,7 +150,7 @@ export default function ValidarOperacionModal({ operacion, onClose, aplicaciones
     }
     setSaving(true)
     try {
-      const res = await fetch(`/api/operaciones/${operacion.operacion_ID}`, {
+      const res = await fetch(`/api/operaciones/${operacion.operacion_ID ?? operacion.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

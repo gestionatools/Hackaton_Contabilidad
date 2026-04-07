@@ -42,8 +42,31 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: 'El tipo de operación es obligatorio.' }, { status: 400 })
   }
 
-  // Determine arbol_ID: use linked one or self-link to operacion_ID
-  const arbol_ID = arbol_linked && bodyArbolID ? bodyArbolID : id
+  // Determine if the id is a numeric primary key (row without operacion_ID)
+  const isNumericId = /^\d+$/.test(id)
+
+  // Generate a new operacion_ID if the row doesn't have one yet
+  let generatedOperacionID = null
+  if (isNumericId) {
+    const { data: ops } = await supabase
+      .from('HACK_CONTA_Operaciones')
+      .select('operacion_ID')
+    const maxNum = (ops || []).reduce((max, op) => {
+      const match = op.operacion_ID?.match(/CONT-OP-(\d+)/)
+      if (match) {
+        const n = parseInt(match[1], 10)
+        return n > max ? n : max
+      }
+      return max
+    }, 0)
+    generatedOperacionID = `CONT-OP-${String(maxNum + 1).padStart(6, '0')}`
+  }
+
+  // The effective operacion_ID for this row (existing or newly generated)
+  const effectiveOperacionID = generatedOperacionID ?? id
+
+  // Determine arbol_ID: use linked one or self-link to effectiveOperacionID
+  const arbol_ID = arbol_linked && bodyArbolID ? bodyArbolID : effectiveOperacionID
 
   // Generate RC_Numero if tipo is RC (query all existing to find next number)
   let generatedRC_Numero = null
@@ -91,6 +114,11 @@ export async function PATCH(request, { params }) {
     operacion_importegastado: null,
   }
 
+  // Assign generated operacion_ID if this row didn't have one
+  if (generatedOperacionID) {
+    updatePayload.operacion_ID = generatedOperacionID
+  }
+
   if (generatedRC_Numero) {
     updatePayload.RC_Numero = generatedRC_Numero
   }
@@ -105,11 +133,11 @@ export async function PATCH(request, { params }) {
     updatePayload.operacion_importegastado = isNaN(impGast) ? null : impGast
   }
 
-  const { data: updatedRows, error: patchError } = await supabase
-    .from('HACK_CONTA_Operaciones')
-    .update(updatePayload)
-    .eq('operacion_ID', id)
-    .select()
+  // Build the filter: use numeric PK `id` for rows without operacion_ID, else use operacion_ID
+  const query = supabase.from('HACK_CONTA_Operaciones').update(updatePayload).select()
+  const { data: updatedRows, error: patchError } = isNumericId
+    ? await query.eq('id', parseInt(id, 10))
+    : await query.eq('operacion_ID', id)
 
   if (patchError) {
     return NextResponse.json({ error: `Error al validar operación: ${patchError.message}` }, { status: 500 })
@@ -117,11 +145,10 @@ export async function PATCH(request, { params }) {
 
   if (!updatedRows || updatedRows.length === 0) {
     // Distinguish between "record not found" and "RLS blocking the update"
-    const { data: existingRow } = await supabase
-      .from('HACK_CONTA_Operaciones')
-      .select('operacion_ID')
-      .eq('operacion_ID', id)
-      .maybeSingle()
+    const checkQuery = supabase.from('HACK_CONTA_Operaciones').select('operacion_ID')
+    const { data: existingRow } = isNumericId
+      ? await checkQuery.eq('id', parseInt(id, 10)).maybeSingle()
+      : await checkQuery.eq('operacion_ID', id).maybeSingle()
 
     if (!existingRow) {
       return NextResponse.json(
@@ -149,7 +176,7 @@ export async function PATCH(request, { params }) {
       .eq('aplicacion_presup', operacion_aplicacion)
   }
 
-  return NextResponse.json({ success: true, operacion_ID: id, RC_Numero: generatedRC_Numero })
+  return NextResponse.json({ success: true, operacion_ID: effectiveOperacionID, RC_Numero: generatedRC_Numero })
 }
 
 export async function PUT(request, { params }) {
